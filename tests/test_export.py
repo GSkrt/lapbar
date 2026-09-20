@@ -315,6 +315,7 @@ def test_the_window_status_has_everything_it_shows(data):
     assert [t["table"] for t in status["schema"]][:3] == ["activities", "routes", "route_cells"]
     assert status["relationships"] and all({"link", "about"} <= set(r) for r in status["relationships"])
     assert status["examples"] and all("sql" in x for x in status["examples"])
+    assert [n["title"] for n in status["notes"]] == ["Indexes are left to you", "Adding an R-tree yourself"]
 
 
 def test_the_window_starts_its_own_quickshell_process(monkeypatch):
@@ -340,6 +341,8 @@ def test_the_readme_documents_every_table_and_the_install_command():
     for t in export.SCHEMA:
         assert f"`{t['table']}`" in readme, t["table"]
     assert export.INSTALL_COMMANDS[0] in readme and export.INSTALL_COMMANDS[1] in readme
+    for note in export.NOTES:
+        assert note["title"] in readme and note["about"] in readme
     assert "Fetch history back to" in readme and "Keep it up to date" in readme
 
 

@@ -91,7 +91,7 @@ def test_the_menu_opens_the_data_window_and_the_window_has_all_its_parts():
     window = (manage / "shell.qml").read_text()
     assert window.count("{") == window.count("}")
     for needle in ("Fetch history back to", "Fetching, day by day", "Export to DuckDB", "DuckDB is not installed",
-                   "What is in the database", "Save the database to", "Keep it up to date", "downloads DuckDB's spatial extension once (about 80 MB)"):
+                   "What is in the database", "Notes", "Save the database to", "Keep it up to date", "downloads DuckDB's spatial extension once (about 80 MB)"):
         assert needle in window, needle
     assert "component " not in window        # inline components cannot see the window's ids; the parts are files
     assert '"prefs", "--history-from"' in window and '"prefs", "--continuous"' in window and '"export"' in window

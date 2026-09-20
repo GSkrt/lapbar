@@ -727,6 +727,29 @@ FloatingWindow {
             }
           }
 
+          Heading { text: "Notes" }
+
+          Repeater {
+            model: win.status ? win.status.notes : []
+
+            Column {
+              id: noteBox
+              required property var modelData
+              width: schemaColumn.width
+              spacing: 3
+
+              Text {
+                text: noteBox.modelData.title
+                color: win.fg
+                font.family: win.fontName
+                font.pixelSize: 12
+                font.bold: true
+              }
+
+              Caption { width: parent.width; text: noteBox.modelData.about; font.pixelSize: 11 }
+            }
+          }
+
           Caption { width: parent.width; text: "Click an example to copy it. Open the file with the duckdb command, Python (import duckdb), R, or DBeaver." }
         }
       }

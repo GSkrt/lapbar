@@ -173,6 +173,24 @@ EXAMPLES = [
 ]
 
 
+NOTES = [
+    {"title": "Indexes are left to you",
+     "about": "LapBar creates no spatial index: what you query, and how, is yours to tune. It is already quick without: a "
+              "lat/lon box filter over 8 million samples takes about 20 ms, looking up the rides that pass a spot in "
+              "route_cells about 2 ms, and the overlap join on route_cells under 0.2 s (measured on a synthetic library "
+              "the size of a full archive). The slow query is testing every route against every other with "
+              "ST_Intersects: seconds. DuckDB runs those joins with its own spatial join, which builds a temporary "
+              "R-tree itself, and in one test a persistent index on routes.geom did not change the time."},
+    {"title": "Adding an R-tree yourself",
+     "about": "With the spatial extension loaded: CREATE INDEX idx_routes_geom ON routes USING RTREE (geom); "
+              "It is stored in the file. It helps filters against a fixed shape, for example WHERE ST_Intersects(geom, "
+              "ST_MakeEnvelope(...)): 3.7 ms became 1.3 ms on 1,600 routes. On a point geometry for samples it is not "
+              "worth it: the extra column tripled the file, and a box filter on the plain lat and lon columns "
+              "(19 ms) beat the same filter on the geometry with an R-tree (231 ms). If an index speeds up your own "
+              "joins, that is worth knowing: the numbers above are one machine and one synthetic data set."},
+]
+
+
 def _import():
     try:
         import duckdb

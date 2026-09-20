@@ -75,6 +75,7 @@ def status() -> dict:
         "schema": [{"table": t["table"], "about": t["about"],
                     "columns": [{"name": n, "type": ty, "about": a} for n, ty, a in t["columns"]]} for t in export.SCHEMA],
         "relationships": export.RELATIONSHIPS,
+        "notes": export.NOTES,
         "examples": [{"title": t, "sql": s} for t, s in export.EXAMPLES],
     }
 
