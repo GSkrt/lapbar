@@ -129,7 +129,7 @@ def test_a_third_column_holds_the_calendar_totals_controls_and_the_strava_credit
 
 
 def test_the_fitness_plot_fills_the_middle_column_and_the_credit_sits_in_the_popup_corner():
-    assert "function fitPlot()" in PANEL and "fitnessPlot.width * 0.9" in PANEL           # grows to fill, in proportion
+    assert "function fitPlot()" in PANEL and "fitnessPlot.width * 1.3" in PANEL           # grows to fill, in proportion
     assert PANEL.count("onImplicitHeightChanged: Qt.callLater(root.fitPlot)") == 3
     corner = PANEL[PANEL.index("the required credit, in the popup's bottom-right corner"):]
     assert "anchors.right: parent.right" in corner and "anchors.bottom: parent.bottom" in corner

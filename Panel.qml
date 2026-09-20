@@ -153,7 +153,7 @@ Panel {
     var others = Math.max(leftCol.implicitHeight, thirdCol.implicitHeight + root.creditHeight)
     var natural = rightCol.implicitHeight - fitnessPlot.height + root.plotMinHeight      // the middle column with the smallest plot
     var wanted = root.plotMinHeight + Math.max(0, others - natural)
-    fitnessPlot.height = Math.min(wanted, Math.max(root.plotMinHeight, fitnessPlot.width * 0.9))   // keep it in proportion
+    fitnessPlot.height = Math.min(wanted, Math.max(root.plotMinHeight, fitnessPlot.width * 1.3))   // keep it in proportion
   }
 
   function totalsRows(t) {

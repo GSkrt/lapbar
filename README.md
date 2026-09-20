@@ -16,12 +16,16 @@ Not affiliated with or endorsed by Strava.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/popup.png" alt="The LapBar popup for a ride: records with medals and cups, kudos, route, stats, fitness, calendar and totals" width="330">
-  <img src="docs/screenshots/chart.png" alt="The chart window for the same ride: elevation, speed, heart rate, power, cadence, temperature and grade" width="620">
+  <img src="docs/screenshots/popup.png" alt="The LapBar popup for a ride in three columns: the ride with its records and kudos, route and numbers; fitness and form with the skip and motivational-quote controls; the calendar and totals" width="720">
 </p>
 
-*The popup for a ride (records by name, kudos, route, stats, fitness, form, calendar and totals) and the chart window
-for the same ride, one plot per measure with a shared cursor. The names of the people who gave kudos are blurred.*
+<p align="center">
+  <img src="docs/screenshots/chart.png" alt="The chart window for the same ride: elevation, speed, heart rate, power, cadence, temperature and grade" width="720">
+</p>
+
+*The popup for a ride (records by name, kudos, route, stats, fitness and form, the skip and motivational-quote
+controls, calendar and totals) and the chart window for the same ride, one plot per measure with a shared cursor.
+The names of the people who gave kudos are blurred.*
 
 ## Getting started
 
@@ -205,11 +209,11 @@ alerts.
 ### The popup, and where to find things
 
 <p align="center">
-  <img src="docs/screenshots/popup-guide.png" alt="The popup with numbered markers on each part; the numbers are explained in the list below" width="560">
+  <img src="docs/screenshots/popup-guide.png" alt="The popup with numbered markers on each part; the numbers are explained in the list below" width="720">
 </p>
 
 1. **The ride.** Its name, sport and date. The popup shows your latest ride; after you pick another day in the calendar
-   (14), a *Back to latest activity* link appears here.
+   (16), a *Back to latest activity* link appears here.
 2. **⋮ Menu.** Refresh now, mute kudos alerts, refresh interval, FTP, Manage data, credentials, Strava API
    settings, About, Reset account (see the table below).
 3. **⟳ Refresh now.** Opening the popup also refreshes if the data is more than two minutes old.
@@ -228,9 +232,15 @@ alerts.
 11. **Fitness, fatigue and form:** three numbers, your FTP if set, a plain-words status and the plot. Hover any day.
 12. **Open chart ↗** opens the full-size fitness chart (see "Fitness, fatigue and form").
 13. **Training load versus last week.** A bar showing how this week so far compares with last week up to the same moment.
-14. **Calendar.** Days are shaded by how long you were active, and a dot marks days whose full data is stored.
-    Click a day to show that ride in the popup. « » move by a year, ‹ › by a month; the triangle folds it.
-15. **Totals** for today, this week, this month and this year, per sport, with the total climb.
+14. **Skipping today?** Five buttons (I'm tired, Bad weather, No time, Not feeling well, Planned rest day). The one
+    you pick is marked on the calendar (16), and the coach leaves you alone that day.
+15. **Motivational quotes:** Silent, Motivational or Drill sergeant, and *Try one* for a sample. See "Motivational
+    quotes and skipping a day".
+16. **Calendar.** Days are shaded by how long you were active, and a dot marks days whose full data is stored. A ring
+    marks a day you skipped (hover it to see why). Click a day to show that ride in the popup. « » move by a year,
+    ‹ › by a month; the triangle folds it.
+17. **Totals** for today, this week, this month and this year, per sport, with the total climb.
+18. **Powered by Strava**, in the bottom-right corner, as Strava's brand guidelines ask.
 
 **I want to...**
 
@@ -241,9 +251,11 @@ alerts.
 | be told about new kudos | automatic; mute with 10, a right-click on the bar button or **⋮ → Mute kudos alerts**; Omarchy's do-not-disturb silences them too |
 | refresh now | ⟳ (3), **⋮ → Refresh now**, or a middle-click on the bar button |
 | change how often it refreshes | **⋮ → Refresh every…** (1 minute to 1 hour; default 15 minutes) |
-| look at an older ride | the calendar (14); *Back to latest activity* (1) returns |
+| look at an older ride | the calendar (16); *Back to latest activity* (1) returns |
 | open a ride's charts, or the ride on Strava | *Open charts* (7), *View on Strava* (6) |
-| see my fitness, fatigue and form | the block at the top of the right column (11), *Open chart* (12) |
+| see my fitness, fatigue and form | the top of the middle column (11), *Open chart* (12) |
+| skip a day, with a reason | the buttons under the fitness plot (14); the day is ringed on the calendar (16) |
+| turn the motivational popups on or off, or change their tone | Motivational quotes (15) |
 | set or estimate my FTP | **⋮ → FTP…** |
 | see how much history is stored, or limit how far back it goes | **⋮ → Manage data…** (see "The data window") |
 | sign in again, or change the Client ID and Secret | **⋮ → Update credentials or sign in…** |
@@ -306,7 +318,7 @@ terminal: `lapbar excuse tired`, `lapbar prefs --coach-tone drill`, `lapbar coac
 
 ### Fitness, fatigue and form
 
-At the top of the popup's right column is the plot everything else is meant to be built on: **fitness** (a slow
+At the top of the popup's middle column is the plot everything else is meant to be built on: **fitness** (a slow
 average of your training, about six weeks), **fatigue** (a fast average, about a week) and **form** (fitness minus
 fatigue as it stood yesterday: above zero you are fresh, below zero you are tired). Hover any day to read it, or
 click **Open chart** for the full-size version with the daily load underneath. The bar cycles a "Form +8" frame too.

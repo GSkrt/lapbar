@@ -139,7 +139,7 @@ FloatingWindow {
                 smooth: true
                 fillMode: Image.PreserveAspectFit
                 // portrait pictures (the popup) are shown narrower so they do not run off the screen
-                readonly property real maxWidth: implicitHeight > implicitWidth ? Math.min(column.width, 520) : column.width
+                readonly property real maxWidth: implicitHeight > implicitWidth * 1.2 ? Math.min(column.width, 520) : column.width
                 width: implicitWidth > 0 ? Math.min(implicitWidth, maxWidth) : 0
                 height: implicitWidth > 0 ? width * implicitHeight / implicitWidth : 0
               }

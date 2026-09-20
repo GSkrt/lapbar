@@ -27,7 +27,7 @@ Click the button. Each numbered part is explained below the picture.
 
 ![The popup with numbered markers on each part](screenshots/popup-guide.png)
 
-1. **The ride.** Its name, sport and date. After you pick another day in the calendar (14), a *Back to latest
+1. **The ride.** Its name, sport and date. After you pick another day in the calendar (16), a *Back to latest
    activity* link appears here.
 2. **The menu** (three dots): refresh, mute, refresh interval, FTP, Manage data, How to use, credentials, About, Reset.
 3. **Refresh now.** Opening the popup also refreshes if the data is more than two minutes old.
@@ -44,9 +44,14 @@ Click the button. Each numbered part is explained below the picture.
 11. **Fitness, fatigue and form.** Three numbers, your FTP if set, a plain-words status and the plot. Hover any day.
 12. **Open chart** opens the full-size fitness chart.
 13. **Training load versus last week.** How this week so far compares with last week up to the same moment.
-14. **Calendar.** Days are shaded by how long you were active, and a dot marks days whose full data is stored. Click
-    a day to show that ride. The double arrows move by a year, the single ones by a month; the triangle folds it.
-15. **Totals** for today, this week, this month and this year, per sport, with the total climb.
+14. **Skipping today?** Five buttons (I'm tired, Bad weather, No time, Not feeling well, Planned rest day). The one
+    you pick is marked on the calendar (16), and the coach leaves you alone that day.
+15. **Motivational quotes.** Silent, Motivational or Drill sergeant, and *Try one* for a sample.
+16. **Calendar.** Days are shaded by how long you were active, and a dot marks days whose full data is stored. A ring
+    marks a day you skipped (hover it to see why). Click a day to show that ride. The double arrows move by a year,
+    the single ones by a month; the triangle folds it.
+17. **Totals** for today, this week, this month and this year, per sport, with the total climb.
+18. **Powered by Strava**, in the bottom-right corner.
 
 ## Where do I find...
 
@@ -57,9 +62,11 @@ Click the button. Each numbered part is explained below the picture.
 | be told about new kudos | automatic; mute with 10, a right-click on the bar button, or the menu; Omarchy's do-not-disturb silences them too |
 | refresh now | the refresh button (3), the menu, or a middle-click on the bar button |
 | change how often it refreshes | menu, **Refresh every...** (1 minute to 1 hour; default 15 minutes) |
-| look at an older ride | the calendar (14); *Back to latest activity* (1) returns |
+| look at an older ride | the calendar (16); *Back to latest activity* (1) returns |
 | open a ride's charts, or the ride on Strava | *Open charts* (7), *View on Strava* (6) |
-| see my fitness, fatigue and form | the block at the top of the right column (11), *Open chart* (12) |
+| see my fitness, fatigue and form | the top of the middle column (11), *Open chart* (12) |
+| skip a day, with a reason | the buttons under the fitness plot (14); the day is ringed on the calendar (16) |
+| turn the motivational popups on or off, or change their tone | Motivational quotes (15) |
 | set or estimate my FTP | menu, **FTP...** |
 | see how much history is stored, or limit how far back it goes | menu, **Manage data...** |
 | sign in again, or change the Client ID and Secret | menu, **Update credentials or sign in...** |
