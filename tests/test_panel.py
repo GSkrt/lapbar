@@ -115,3 +115,12 @@ def test_excuses_are_chips_in_the_window_and_marked_on_the_calendar():
     assert 'root.coachSet(["excuse", chip.modelData])' in PANEL
     assert 'excuse: root.excuses[key] || ""' in PANEL and "skipped: " in PANEL
     assert "cell.modelData.excuse" in PANEL
+
+
+def test_a_third_row_spans_the_popup_with_totals_the_controls_and_the_strava_credit():
+    row = PANEL[PANEL.index("id: bottomRow"):]
+    assert "anchors.top: layout.bottom" in row
+    for part in ("id: totalsRow", "// \"skipping today?\"", "// \"Motivational quotes\"", "source: root.stravaLogo"):
+        assert part in row
+    left = PANEL[PANEL.index("id: leftCol"):PANEL.index("id: rightCol")]
+    assert "visible: !!root.summary\n          source: root.stravaLogo" not in left       # the credit left the left column

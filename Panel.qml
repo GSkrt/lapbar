@@ -135,6 +135,14 @@ Panel {
   function fmtClimb(m) { return "\u2191 " + Math.round(m).toLocaleString(Qt.locale("en_US"), "f", 0) + " m" }
 
   // [{label, value}] per sport family, most time spent first (the CLI already sorts them).
+  // Today (hidden while empty), this week, this month and this year, shown side by side in the third row.
+  readonly property var totalsBlocks: {
+    if (!root.summary) return []
+    var all = [{ title: "Today", t: root.summary.today, hideEmpty: true }, { title: "This week", t: root.summary.week },
+               { title: "This month", t: root.summary.month }, { title: "This year", t: root.summary.year }]
+    return all.filter(function(b) { return !(b.hideEmpty && root.totalsRows(b.t).length === 0) })
+  }
+
   function totalsRows(t) {
     var rows = []
     if (!t || !t.by_sport) return rows
@@ -1053,7 +1061,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(root.wide ? 660 : 340))
-    contentHeight: panel.fittedContentHeight(Math.max(leftCol.implicitHeight, root.wide ? rightCol.implicitHeight : 0))
+    contentHeight: panel.fittedContentHeight(Math.max(leftCol.implicitHeight, root.wide ? rightCol.implicitHeight : 0) + (root.wide ? bottomRow.implicitHeight + Style.spacing.panelGap : 0))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -1063,7 +1071,9 @@ Panel {
 
       Row {
         id: layout
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
         spacing: Style.space(24)
 
         readonly property real colWidth: root.wide ? (width - spacing) / 2 : width
@@ -2056,15 +2066,6 @@ Panel {
           font.pixelSize: Style.font.caption
         }
 
-        Image {
-          visible: !!root.summary
-          source: root.stravaLogo
-          sourceSize.height: 48
-          height: Style.space(16)
-          fillMode: Image.PreserveAspectFit
-          horizontalAlignment: Image.AlignLeft
-        }
-
         Text {
           visible: !root.needsSetup
           text: root.icon(root.muted ? "bellOff" : "bell") + "  Kudos alerts: " + (root.muted ? "muted" : "on")
@@ -2080,91 +2081,6 @@ Panel {
         }
 
 
-        Column {                                              // "Motivational quotes": Silent, Motivational or Drill sergeant
-          visible: !root.needsSetup
-          width: parent.width
-          spacing: Style.space(4)
-
-          Text {
-            text: "Motivational quotes"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-          }
-
-          Row {
-            spacing: Style.space(14)
-
-            Repeater {
-              model: root.coachModes
-
-              Item {
-                id: radio
-                required property var modelData
-                readonly property bool on: root.coachTone === modelData.id
-                width: radioDot.width + radioLabel.implicitWidth + Style.space(6)
-                height: Style.space(20)
-
-                Rectangle {
-                  id: radioDot
-                  width: Style.space(14)
-                  height: Style.space(14)
-                  radius: width / 2
-                  anchors.verticalCenter: parent.verticalCenter
-                  color: "transparent"
-                  border.width: 1
-                  border.color: radio.on ? root.foreground : root.dim
-
-                  Rectangle {
-                    anchors.centerIn: parent
-                    width: Style.space(8)
-                    height: Style.space(8)
-                    radius: width / 2
-                    color: root.foreground
-                    visible: radio.on
-                  }
-                }
-
-                Text {
-                  id: radioLabel
-                  anchors.left: radioDot.right
-                  anchors.leftMargin: Style.space(6)
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: radio.modelData.label
-                  color: radio.on ? root.foreground : root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                  font.bold: radio.on
-                }
-
-                MouseArea {
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.coachSet(["prefs", "--coach-tone", radio.modelData.id])
-                }
-              }
-            }
-          }
-
-          Text {
-            visible: root.coachTone !== "off"
-            text: "Try one  \u2197"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-
-            MouseArea {
-              anchors.fill: parent
-              anchors.margins: -Style.space(4)
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                if (coachTryProc.running) return
-                coachTryProc.command = ["/usr/bin/python3", "-I", root.launcher, "coach", "--test"]
-                coachTryProc.running = true
-              }
-            }
-          }
-        }
         }
 
         // ---- right: how you are doing
@@ -2746,115 +2662,251 @@ Panel {
             }
           }
         }
+        }
+      }
+
+      // ---- the third row, across the whole width: totals side by side, the skip and coach controls, the Strava credit
+      Column {
+        id: bottomRow
+        visible: root.wide
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: layout.bottom
+        anchors.topMargin: Style.spacing.panelGap
+        spacing: Style.spacing.panelGap
+
+        PanelSeparator { foreground: root.foreground }
+
+        Grid {                                                // Today, this week, this month, this year: two by two
+          id: totalsRow
+          columns: 2
+          columnSpacing: Style.space(24)
+          rowSpacing: Style.spacing.panelGap
+
+          Repeater {
+            model: root.totalsBlocks
+
+            Column {
+              id: totalsBlock
+              required property var modelData
+              width: (bottomRow.width - totalsRow.columnSpacing) / 2
+              spacing: Style.spacing.sm
+
+              Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: totalsBlock.modelData.title
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+
+              Text {
+                visible: root.totalsRows(totalsBlock.modelData.t).length === 0
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                text: "Nothing yet"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+              }
+
+              Repeater {
+                model: root.totalsRows(totalsBlock.modelData.t)
+
+                Item {
+                  required property var modelData
+                  width: totalsBlock.width
+                  height: rowLabel.implicitHeight
+
+                  Text {
+                    id: rowLabel
+                    text: parent.modelData.label
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                  }
+
+                  Text {
+                    anchors.right: parent.right
+                    text: parent.modelData.value
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        PanelSeparator { foreground: root.foreground }
 
         Column {                                              // "skipping today?": the reason is marked on the calendar
-          visible: !!root.summary
-          width: rightCol.width
+          width: parent.width
           spacing: Style.spacing.sm
 
           Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
             text: root.todayExcuse !== "" ? "Skipping today: " + root.excuseLabel(root.todayExcuse) : "Skipping today?"
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: Style.font.caption
           }
 
-          Flow {
+          Item {
             width: parent.width
-            spacing: Style.space(6)
+            height: chipsRow.height
 
-            Repeater {
-              model: ["tired", "weather", "time", "unwell", "rest"]
+            Row {
+              id: chipsRow
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: Style.space(6)
 
-              Rectangle {
-                id: chip
-                required property string modelData
-                readonly property bool on: root.todayExcuse === modelData
-                width: chipText.implicitWidth + Style.space(16)
-                height: Style.space(24)
-                radius: height / 2
-                color: chip.on ? Qt.rgba(0.90, 0.71, 0.13, 0.28) : (chipMouse.containsMouse ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : "transparent")
-                border.width: 1
-                border.color: chip.on ? "#e6b422" : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
+              Repeater {
+                model: ["tired", "weather", "time", "unwell", "rest"]
 
-                Text {
-                  id: chipText
-                  anchors.centerIn: parent
-                  text: root.excuseLabel(chip.modelData)
-                  color: chip.on ? root.foreground : root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
+                Rectangle {
+                  id: chip
+                  required property string modelData
+                  readonly property bool on: root.todayExcuse === modelData
+                  width: chipText.implicitWidth + Style.space(16)
+                  height: Style.space(24)
+                  radius: height / 2
+                  color: chip.on ? Qt.rgba(0.90, 0.71, 0.13, 0.28) : (chipMouse.containsMouse ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : "transparent")
+                  border.width: 1
+                  border.color: chip.on ? "#e6b422" : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
+
+                  Text {
+                    id: chipText
+                    anchors.centerIn: parent
+                    text: root.excuseLabel(chip.modelData)
+                    color: chip.on ? root.foreground : root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                  }
+
+                  MouseArea {
+                    id: chipMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.coachSet(["excuse", chip.modelData])
+                  }
                 }
+              }
+            }
+          }
+        }
+
+        Column {                                              // "Motivational quotes": Silent, Motivational or Drill sergeant
+          width: parent.width
+          spacing: Style.spacing.sm
+
+          Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: "Motivational quotes"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Item {
+            width: parent.width
+            height: radioRow.height
+
+            Row {
+              id: radioRow
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: Style.space(18)
+
+              Repeater {
+                model: root.coachModes
+
+                Item {
+                  id: radio
+                  required property var modelData
+                  readonly property bool on: root.coachTone === modelData.id
+                  width: radioDot.width + radioLabel.implicitWidth + Style.space(6)
+                  height: Style.space(20)
+
+                  Rectangle {
+                    id: radioDot
+                    width: Style.space(14)
+                    height: Style.space(14)
+                    radius: width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: "transparent"
+                    border.width: 1
+                    border.color: radio.on ? root.foreground : root.dim
+
+                    Rectangle {
+                      anchors.centerIn: parent
+                      width: Style.space(8)
+                      height: Style.space(8)
+                      radius: width / 2
+                      color: root.foreground
+                      visible: radio.on
+                    }
+                  }
+
+                  Text {
+                    id: radioLabel
+                    anchors.left: radioDot.right
+                    anchors.leftMargin: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: radio.modelData.label
+                    color: radio.on ? root.foreground : root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: radio.on
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.coachSet(["prefs", "--coach-tone", radio.modelData.id])
+                  }
+                }
+              }
+
+              Text {
+                visible: root.coachTone !== "off"
+                anchors.verticalCenter: parent.verticalCenter
+                text: "Try one  \u2197"
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
 
                 MouseArea {
-                  id: chipMouse
                   anchors.fill: parent
-                  hoverEnabled: true
+                  anchors.margins: -Style.space(4)
                   cursorShape: Qt.PointingHandCursor
-                  onClicked: root.coachSet(["excuse", chip.modelData])
+                  onClicked: {
+                    if (coachTryProc.running) return
+                    coachTryProc.command = ["/usr/bin/python3", "-I", root.launcher, "coach", "--test"]
+                    coachTryProc.running = true
+                  }
                 }
               }
             }
           }
         }
 
-        PanelSeparator { visible: !!root.summary; foreground: root.foreground }
+        Item {                                                // the required credit, bottom right
+          width: parent.width
+          height: Style.space(16)
 
-        // ---------- totals ----------
-
-        Repeater {
-          model: root.summary ? [{ title: "Today", t: root.summary.today, hideEmpty: true }, { title: "This week", t: root.summary.week },
-                                 { title: "This month", t: root.summary.month }, { title: "This year", t: root.summary.year }] : []
-
-          Column {
-            required property var modelData
-            visible: !(modelData.hideEmpty && root.totalsRows(modelData.t).length === 0)   // an empty "Today" is just noise
-            width: rightCol.width
-            spacing: Style.spacing.sm
-
-            Text {
-              text: modelData.title
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-            }
-
-            Text {
-              visible: root.totalsRows(modelData.t).length === 0
-              text: "Nothing yet"
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.body
-            }
-
-            Repeater {
-              model: root.totalsRows(modelData.t)
-
-              Item {
-                required property var modelData
-                width: rightCol.width
-                height: rowLabel.implicitHeight
-
-                Text {
-                  id: rowLabel
-                  text: parent.modelData.label
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                }
-
-                Text {
-                  anchors.right: parent.right
-                  text: parent.modelData.value
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                }
-              }
-            }
+          Image {
+            anchors.right: parent.right
+            height: parent.height
+            source: root.stravaLogo
+            sourceSize.height: 48
+            fillMode: Image.PreserveAspectFit
+            horizontalAlignment: Image.AlignRight
           }
-        }
-
         }
       }
     }
