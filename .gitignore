@@ -12,3 +12,6 @@ secrets.json
 tokens.json
 streams/
 .pytest_cache/
+
+# My private working notes: not part of the repository.
+TODO.md
