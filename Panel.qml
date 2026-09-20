@@ -20,6 +20,7 @@ Panel {
 
   readonly property int refreshIntervalSec: Math.max(60, Number(setting("refreshIntervalSec", 900)))
   readonly property int downloadHistory: Math.max(0, Math.min(10, Number(setting("downloadHistory", 3))))  // older activities' series fetched per refresh
+  readonly property int historyYears: Math.max(0, Math.min(99, Number(setting("historyYears", 99))))   // earlier years kept for the calendar
   readonly property int ftp: Math.max(0, Math.min(600, Number(setting("ftp", 0))))   // cycling FTP in watts; 0 = unknown
   readonly property int cycleIntervalSec: Math.max(0, Number(setting("cycleIntervalSec", 6)))   // 0 = no cycling
   readonly property string loadMetric: String(setting("loadMetric", "time"))                    // time | distance | effort
@@ -198,24 +199,64 @@ Panel {
     return t < 1800 ? 0.3 : (t < 3600 ? 0.5 : (t < 7200 ? 0.72 : 0.92))
   }
 
-  // Data only covers the current year, so paging back stops at January.
-  readonly property bool canGoBack: !(root.viewYear === root.today.getFullYear() && root.viewMonth === 0)
+  // Paging back stops at the month of the earliest stored activity (January of this year if no older years are stored).
+  readonly property int earliestIdx: {
+    var from = (root.summary && root.summary.history) ? root.summary.history.from : null
+    if (from && from.length >= 7) return parseInt(from.slice(0, 4)) * 12 + parseInt(from.slice(5, 7)) - 1
+    return root.today.getFullYear() * 12
+  }
+  readonly property bool canGoBack: root.viewYear * 12 + root.viewMonth > root.earliestIdx
   readonly property bool canGoForward: root.viewYear * 12 + root.viewMonth < root.today.getFullYear() * 12 + root.today.getMonth()
 
+  // Moves the calendar by months, clamped to what exists (the earliest stored month, and this month).
   function shiftMonth(delta) {
     var idx = root.viewYear * 12 + root.viewMonth + delta
+    idx = Math.max(root.earliestIdx, Math.min(root.today.getFullYear() * 12 + root.today.getMonth(), idx))
     root.viewYear = Math.floor(idx / 12)
     root.viewMonth = idx % 12
   }
 
+  // ---------------------------------------------- older years: stored on disk, read when the calendar reaches them
+
+  property var historyByYear: ({})       // {year: [activities]}, filled by `lapbar history <year>`
+  property string historySignature: ""    // which years were stored last time: a change means the loaded ones may be stale
+
+  function activitiesOfYear(year) {
+    if (year === root.today.getFullYear()) return root.activities
+    return root.historyByYear[year] || []
+  }
+
   function activitiesOn(key) {
     var out = []
-    for (var i = 0; i < root.activities.length; i++) {
-      var a = root.activities[i]
+    var list = root.activitiesOfYear(parseInt(key.slice(0, 4)))
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i]
       if (a.start && a.start.slice(0, 10) === key) out.push(a)
     }
     return out
   }
+
+  function loadHistoryYear(year) {
+    if (year >= root.today.getFullYear() || root.historyByYear[year] !== undefined || historyProcess.running) return
+    if (!root.summary || !root.summary.history || root.summary.history.years.indexOf(year) < 0) return
+    historyProcess.wantedYear = year
+    historyProcess.command = ["/usr/bin/python3", "-I", root.launcher, "history", String(year)]
+    historyProcess.running = true
+  }
+
+  function handleHistory(year, text) {
+    try {
+      var p = JSON.parse(text)
+      if (!p.error) {
+        var map = Object.assign({}, root.historyByYear)
+        map[year] = p.activities || []
+        root.historyByYear = map
+      }
+    } catch (e) { }
+    if (root.viewYear !== year) root.loadHistoryYear(root.viewYear)
+  }
+
+  onViewYearChanged: root.loadHistoryYear(root.viewYear)
 
   // Clicking an active day takes you to its activity; with several, the newest is shown and the
   // others are listed under the calendar.
@@ -666,6 +707,7 @@ Panel {
     var cmd = ["/usr/bin/python3", "-I", root.launcher, "fetch", "--print", "--backfill", String(root.downloadHistory)]
     var ftpNow = ftpOverride !== undefined ? ftpOverride : root.ftp
     if (ftpNow > 0) cmd.push("--ftp", String(ftpNow))
+    if (root.historyYears > 0) cmd.push("--history-years", String(root.historyYears))
     if (manual !== false) cmd.push("--manual")
     fetchProcess.command = cmd
     fetchProcess.running = true
@@ -686,10 +728,18 @@ Panel {
       return
     }
     root.summary = parsed
+    var signature = (parsed.history && parsed.history.years) ? parsed.history.years.join(",") : ""
+    if (signature !== root.historySignature) {     // more years were stored since: read them again when needed
+      root.historySignature = signature
+      root.historyByYear = ({})
+      root.loadHistoryYear(root.viewYear)
+    }
     if (root.selected) {  // re-resolve by id so kudos etc. update, and drop it if it vanished
       var fresh = null
       for (var i = 0; i < parsed.activities.length; i++)
         if (parsed.activities[i].id === root.selected.id) { fresh = parsed.activities[i]; break }
+      // an activity from an older year is not in this year's list and does not change: keep showing it
+      if (!fresh && String(root.selected.start).slice(0, 4) !== String(root.today.getFullYear())) fresh = root.selected
       root.selected = fresh
       if (!fresh) root.selectedDay = ""
     }
@@ -769,6 +819,17 @@ Panel {
     environment: root.fetchEnvironment
     stdout: StdioCollector { id: fetchOut; waitForEnd: true }
     onExited: root.handleResult(fetchOut.text)
+  }
+
+  Process {
+    id: historyProcess
+    property int wantedYear: 0
+    running: false
+    command: []
+    clearEnvironment: true
+    environment: root.fetchEnvironment
+    stdout: StdioCollector { id: historyOut; waitForEnd: true }
+    onExited: root.handleHistory(historyProcess.wantedYear, historyOut.text)
   }
 
   Process {
@@ -2166,20 +2227,39 @@ Panel {
             width: parent.width
             height: monthTitle.implicitHeight
 
-            Text {
+            Row {
               anchors.left: parent.left
               anchors.verticalCenter: parent.verticalCenter
-              text: "‹"
+              spacing: Style.space(10)
               opacity: root.canGoBack ? 1 : 0.25
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.heading
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -Style.space(6)
-                enabled: root.canGoBack
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.shiftMonth(-1)
+
+              Text {
+                visible: root.earliestIdx < root.today.getFullYear() * 12       // older years exist: allow jumping by a year
+                text: "«"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.heading
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(6)
+                  enabled: root.canGoBack
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.shiftMonth(-12)
+                }
+              }
+
+              Text {
+                text: "‹"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.heading
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(6)
+                  enabled: root.canGoBack
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.shiftMonth(-1)
+                }
               }
             }
 
@@ -2193,20 +2273,39 @@ Panel {
               font.bold: true
             }
 
-            Text {
+            Row {
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              text: "›"
+              spacing: Style.space(10)
               opacity: root.canGoForward ? 1 : 0.25
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.heading
-              MouseArea {
-                anchors.fill: parent
-                anchors.margins: -Style.space(6)
-                enabled: root.canGoForward
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.shiftMonth(1)
+
+              Text {
+                text: "›"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.heading
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(6)
+                  enabled: root.canGoForward
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.shiftMonth(1)
+                }
+              }
+
+              Text {
+                visible: root.earliestIdx < root.today.getFullYear() * 12
+                text: "»"
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.heading
+                MouseArea {
+                  anchors.fill: parent
+                  anchors.margins: -Style.space(6)
+                  enabled: root.canGoForward
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.shiftMonth(12)
+                }
               }
             }
           }

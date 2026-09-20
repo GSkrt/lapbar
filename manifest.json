@@ -23,7 +23,8 @@
       "cycleIntervalSec": 6,
       "loadMetric": "time",
       "downloadHistory": 3,
-      "ftp": 0
+      "ftp": 0,
+      "historyYears": 99
     },
     "schema": [
       {
@@ -72,6 +73,16 @@
         "max": 600,
         "step": 5,
         "defaultValue": 0
+      },
+      {
+        "key": "historyYears",
+        "type": "integer",
+        "label": "History for the calendar (years)",
+        "description": "How many earlier years to download from Strava so the calendar can page back to them. 0 = this year only; 99 = everything Strava has. Each year is downloaded once (one request per 200 activities) and stored on this computer, a couple of years per refresh so the request allowance is never at risk.",
+        "min": 0,
+        "max": 99,
+        "step": 1,
+        "defaultValue": 99
       }
     ]
   }

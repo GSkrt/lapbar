@@ -149,6 +149,12 @@ up to date, and the own-app mode described above will keep working either way.
   a sport icon, this week's total, kudos and PRs of the latest activity (only when there are any), and your
   training load compared with last week. Hover shows when Strava was last polled, the latest activity's name,
   kudos and PRs, and the load comparison.
+- **Calendar history.** The calendar pages back to your first Strava activity, with « » to jump a year. Earlier
+  years are downloaded once (one request per 200 activities of that year; a couple of years per refresh, so the
+  first sync never touches the request allowance) and stored under `~/.cache/lapbar/history/`. The
+  `historyYears` setting says how many years back to keep: `0` is this year only, `99` (default) is everything
+  Strava has. A stored year is not downloaded again, so later edits on Strava do not reach it; to redo them run
+  `lapbar history --sync --refresh`. Clicking an older day opens that ride like any other.
 - **Records and kudos** sit right under the ride's description, in a section that folds like the calendar (it
   starts folded when the list is long, so the popup never outgrows the screen). A **medal** marks a personal record
   (PR: your 1st, 2nd or 3rd fastest time on a segment, or a run's best efforts such as your fastest 5k), a **cup** a
@@ -309,6 +315,7 @@ to run the real `secret-tool` fails the test. Run them with a venv that has `pyt
     lapbar charts <activity id>          # downloads once if needed, then opens the window
     lapbar streams <activity id> --refresh   # download the series again
     lapbar details <activity id>         # the ride's records and kudos names, as the popup asks for them (JSON)
+    lapbar history --sync                # download the older years for the calendar now (--refresh: again, --years N)
 
 Its plotting logic lives in `charts/logic.js` (ticks, cursor lookup, zoom, formatting) and is unit-tested with
 `node`; the window itself is `charts/shell.qml` + `charts/SeriesPanel.qml`, drawn with Qt Quick's built-in

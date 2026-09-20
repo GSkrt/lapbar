@@ -8,7 +8,7 @@ from lapbar.providers import strava
 
 def run_fetch(monkeypatch, capsys, exc, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0: (_ for _ in ()).throw(exc))
+    monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0, **kw: (_ for _ in ()).throw(exc))
     try:
         cli.main(["fetch", "--print"])
     except SystemExit as e:
@@ -33,7 +33,7 @@ def test_errors_are_machine_readable(monkeypatch, capsys, tmp_path):
 
 def test_success_prints_summary_and_writes_cache(monkeypatch, capsys, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0: {"provider": "strava", "latest": None})
+    monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0, **kw: {"provider": "strava", "latest": None})
     try:
         cli.main(["fetch", "--print"])
     except SystemExit as e:
@@ -64,7 +64,7 @@ def test_events_are_printed_once_but_never_cached(monkeypatch, capsys, tmp_path)
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     summary = {"provider": "strava", "latest": None, "kudos_events": [{"activity_id": 1, "count": 2}]}
-    monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0: dict(summary))
+    monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0, **kw: dict(summary))
     try:
         cli.main(["fetch", "--print"])
     except SystemExit:

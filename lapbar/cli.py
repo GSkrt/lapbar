@@ -3,8 +3,9 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
 
-from . import auth, charts, config, details, fitness, mute, ratelimit, setup, streams, vault
+from . import auth, charts, config, details, fitness, history, mute, ratelimit, setup, streams, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -70,6 +71,7 @@ def cmd_fetch(args) -> int:
         snap = ratelimit.check(kind)
         # Extras (history downloads, kudos name look-ups) only run on the timer and only with plenty of room.
         summary = strava.fetch(previous=_read_cache(), backfill=args.backfill, ftp=args.ftp,
+                               history_years=args.history_years,
                                optional=(kind == "auto" and ratelimit.allow_optional(snap)))
     except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
             HttpError, OSError) as e:
@@ -96,6 +98,9 @@ def _activity_for(activity_id: int, token: str) -> dict:
     for a in (_read_cache() or {}).get("activities", []):
         if a.get("id") == activity_id:
             return a
+    older = history.find(activity_id)
+    if older is not None:
+        return older
     return strava._listed(request_json(f"https://www.strava.com/api/v3/activities/{activity_id}", token=token))
 
 
@@ -125,9 +130,10 @@ def cmd_streams(args) -> int:
 def cmd_details(args) -> int:
     """The records and kudos names of one activity, for the popup: from what is stored, else downloaded once."""
     cache = _read_cache() or {}
-    activity = next((a for a in cache.get("activities", []) if a.get("id") == args.activity), None)
+    activity = next((a for a in cache.get("activities", []) if a.get("id") == args.activity), None) \
+        or history.find(args.activity)
     if activity is None:
-        print(json.dumps({"error": "unknown_activity", "message": "That activity is not in the cached list (this year's only)."}))
+        print(json.dumps({"error": "unknown_activity", "message": "That activity is not in the stored list."}))
         return 1
     known = (cache.get("kudoers") or {}).get(str(activity["id"]))
     try:
@@ -143,6 +149,31 @@ def cmd_details(args) -> int:
         print(json.dumps({"error": code, "message": message}))
         return 1
     print(json.dumps(out))
+    return 0
+
+
+def cmd_history(args) -> int:
+    """Older years for the calendar: read what is stored (no request), or download it with --sync."""
+    if args.sync:
+        try:
+            ratelimit.check("action")
+            token = auth.default_token_source().access_token()
+            done = strava.sync_history(token, datetime.now().year, args.years, budget=999, refresh=args.refresh)
+        except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
+                HttpError, OSError) as e:
+            code, message = _classify(e)
+            print(json.dumps({"error": code, "message": message}))
+            return 1
+        print(json.dumps({"downloaded_years": done, **history.summary()}))
+        return 0
+    if args.year is None:
+        print(json.dumps(history.summary()))
+        return 0
+    if args.year == datetime.now().year:
+        activities = (_read_cache() or {}).get("activities", [])
+    else:
+        activities = history.year_activities(args.year)
+    print(json.dumps({"year": args.year, "activities": activities}))
     return 0
 
 
@@ -224,6 +255,12 @@ def main(argv: list[str] | None = None) -> None:
     details_p = sub.add_parser("details", help="an activity's records (PRs, KOMs) and who gave kudos (JSON)")
     details_p.add_argument("activity", type=int)
     details_p.set_defaults(func=cmd_details)
+    history_p = sub.add_parser("history", help="older years for the calendar: show what is stored, or --sync to download")
+    history_p.add_argument("year", type=int, nargs="?", help="print that year's stored activities (JSON)")
+    history_p.add_argument("--sync", action="store_true", help="download the years that are not stored yet")
+    history_p.add_argument("--refresh", action="store_true", help="with --sync: download stored years again too")
+    history_p.add_argument("--years", type=int, default=99, metavar="N", help="with --sync: how many years back (default: all)")
+    history_p.set_defaults(func=cmd_history)
     charts_p = sub.add_parser("charts", help="open the chart window for an activity")
     charts_p.add_argument("activity", type=int)
     charts_p.add_argument("--refresh", action="store_true", help="download the data again first")
@@ -250,6 +287,8 @@ def main(argv: list[str] | None = None) -> None:
     fetch.add_argument("--print", action="store_true", help="also print the summary")
     fetch.add_argument("--ftp", type=int, default=0, metavar="WATTS",
                        help="your cycling FTP; enables power-based load for rides with a power meter")
+    fetch.add_argument("--history-years", type=int, default=0, metavar="N",
+                       help="also keep N earlier years for the calendar (downloaded a couple per refresh)")
     fetch.add_argument("--manual", action="store_true",
                        help="a refresh you asked for: allowed further into the daily request allowance than the timer")
     fetch.add_argument("--backfill", type=int, default=3, metavar="N",

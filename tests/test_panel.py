@@ -66,3 +66,11 @@ def test_records_and_kudos_sit_under_the_ride_description_in_a_foldable_section(
     assert "KudosBadge {" in PANEL and (Path(__file__).resolve().parent.parent / "KudosBadge.qml").is_file()   # the big thumbs up
     assert "fmtEffort(recordRow.modelData.seconds)" in PANEL          # the time each record was achieved in
     assert '"details", String(root.shown.id)' in PANEL and "root.opened" in PANEL.split("function loadDetails")[1][:200]
+
+
+def test_the_calendar_pages_back_to_the_earliest_stored_month_and_reads_older_years_on_demand():
+    assert 'setting("historyYears", 99)' in PANEL and 'cmd.push("--history-years"' in PANEL
+    assert "readonly property int earliestIdx" in PANEL and "root.viewYear * 12 + root.viewMonth > root.earliestIdx" in PANEL
+    assert "shiftMonth(-12)" in PANEL and "shiftMonth(12)" in PANEL                 # jump a year at a time
+    assert '"history", String(year)' in PANEL and "onViewYearChanged" in PANEL      # an older year is read when the calendar reaches it
+    assert "activitiesOfYear(parseInt(key.slice(0, 4)))" in PANEL

@@ -208,7 +208,7 @@ def run(monkeypatch, capsys, argv):
 
 
 def fake_fetch(seen):
-    def go(previous=None, backfill=0, optional=True, ftp=0):
+    def go(previous=None, backfill=0, optional=True, ftp=0, **kw):
         seen.update(backfill=backfill, optional=optional)
         return {"provider": "strava", "latest": None}
     return go

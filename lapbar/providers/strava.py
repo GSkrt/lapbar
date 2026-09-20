@@ -2,13 +2,16 @@
 import math
 from datetime import datetime, timedelta, timezone
 
-from .. import auth, details, fitness, kudos, sports, streams
+from .. import auth, details, fitness, history, kudos, sports, streams
 from ..http import HttpError, request_json
 
 ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities"
 PAGE_SIZE = 200
 ROUTE_POINTS = 150
 LIST_ROUTE_POINTS = 60
+HISTORY_PER_REFRESH = 2      # older years downloaded per refresh, so the first sync never eats the request budget
+FIRST_YEAR = 2009            # Strava's first year: nothing to find before it
+EMPTY_YEARS_STOP = 3         # this many empty years in a row means there is nothing older
 
 
 def decode_polyline(encoded: str) -> list[list[float]]:
@@ -203,6 +206,52 @@ def _fetch_since(token: str, since: datetime) -> list[dict]:
         page += 1
 
 
+def _fetch_year(token: str, year: int) -> list[dict]:
+    """Every activity of one calendar year (in the activity's own local time), newest first."""
+    # One day of margin on both sides so timezone differences never drop activities near the year's edges.
+    after = int((datetime(year, 1, 1) - timedelta(days=1)).replace(tzinfo=timezone.utc).timestamp())
+    before = int((datetime(year + 1, 1, 1) + timedelta(days=1)).replace(tzinfo=timezone.utc).timestamp())
+    activities: list[dict] = []
+    page = 1
+    while True:
+        batch = request_json(
+            f"{ACTIVITIES_URL}?after={after}&before={before}&per_page={PAGE_SIZE}&page={page}", token=token)
+        activities += batch
+        if len(batch) < PAGE_SIZE:
+            break
+        page += 1
+    mine = [a for a in activities if _local(a).year == year]
+    mine.sort(key=_local, reverse=True)
+    return mine
+
+
+def sync_history(token: str, this_year: int, max_years: int, budget: int = HISTORY_PER_REFRESH,
+                 refresh: bool = False) -> int:
+    """Download the years before `this_year` that are not stored yet, newest first, at most `budget` of them.
+
+    Stops at `max_years` back, at Strava's first year, or after EMPTY_YEARS_STOP empty years in a row.
+    Returns how many years were downloaded; `history.summary()["complete"]` says whether anything is left."""
+    known = history.index()["years"]
+    downloaded, empty_run, complete = 0, 0, True
+    for year in range(this_year - 1, max(this_year - 1 - max_years, FIRST_YEAR - 1), -1):
+        entry = known.get(str(year))
+        if entry is not None and not refresh:
+            empty_run = empty_run + 1 if entry.get("count", 0) == 0 else 0
+        else:
+            if downloaded >= budget:
+                complete = False
+                break
+            raw = _fetch_year(token, year)
+            history.save_year(year, [_listed(a) for a in raw], _days(raw),
+                              datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+            downloaded += 1
+            empty_run = empty_run + 1 if not raw else 0
+        if empty_run >= EMPTY_YEARS_STOP:
+            break
+    history.set_complete(complete)
+    return downloaded
+
+
 def fetch(
     token_source: auth.TokenSource | None = None,
     now: datetime | None = None,
@@ -210,6 +259,7 @@ def fetch(
     backfill: int = 0,
     optional: bool = True,
     ftp: int = 0,
+    history_years: int = 0,
 ) -> dict:
     """`previous` is the last summary; its elevation profile is reused while the latest ride is unchanged.
 
@@ -251,6 +301,13 @@ def fetch(
             except (HttpError, OSError):
                 pass              # not shown this time; tried again on the next refresh
 
+    if history_years and optional:
+        try:  # older years for the calendar, a couple per refresh until all are stored; failures retry next time
+            sync_history(token_source.access_token(), now.year, history_years)
+        except (HttpError, OSError):
+            pass
+    days = {**history.merged_days(), **_days(year)}
+
     listed = [_listed(a) for a in year]  # newest first
     events, kudos_seen, kudoers = kudos.track(
         token_source.access_token(), listed, previous, seed_limit=kudos.SEED_LIMIT if optional else 0)
@@ -268,7 +325,8 @@ def fetch(
         "week": _with_by_sport(week),
         "month": _with_by_sport(month),
         "year": _with_by_sport(year),
-        "days": _days(year),
+        "days": days,                     # every stored year, for the calendar
+        "history": history.summary(days),
         "load": _load(fetched, now),
         "fitness": fitness.build(fetched, now.date(), ftp=ftp),
         "activities": listed,
