@@ -15,7 +15,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from . import config
+from . import config, fetchlog
 
 DATA_VERSION = 1
 KEYS = "time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,watts,temp,grade_smooth,moving"
@@ -51,11 +51,13 @@ def store(activity: dict, streams: dict) -> None:
     """Keep what Strava sent. An empty answer is remembered too, so it is not requested again."""
     if not streams:
         _write(_empty_path(activity), b"")
+        fetchlog.add_download()
         return
     doc = {"v": DATA_VERSION, "id": activity["id"], "sport": activity.get("sport"), "start": activity.get("start"),
            "fetched": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "streams": streams}
     _write(path_for(activity), gzip.compress(json.dumps(doc, separators=(",", ":")).encode(), 6))
     _empty_path(activity).unlink(missing_ok=True)
+    fetchlog.add_download()
 
 
 def load(activity: dict) -> dict | None:

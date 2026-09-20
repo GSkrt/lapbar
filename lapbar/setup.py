@@ -275,6 +275,10 @@ def forget(out=print, everything: bool = False) -> list[str]:
             f.unlink()
         series_dir.rmdir()
         removed.append("downloaded charts")
+    prefs_file = config.user_env_path().parent / "prefs.json"
+    if prefs_file.exists():
+        prefs_file.unlink()
+        removed.append("preferences")
     if everything and config.data_dir().is_dir():
         shutil.rmtree(config.data_dir())
         removed.append("downloaded activities")

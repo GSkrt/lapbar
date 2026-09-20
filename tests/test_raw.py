@@ -145,7 +145,8 @@ def listed_ride(id_, date):
 
 
 def test_a_refresh_archives_this_year_first_then_older_years_and_reports_progress(monkeypatch):
-    history.save_year(2024, [act(20, "2024-05-01T07:00:00Z"), act(21, "2024-04-01T07:00:00Z")], {"2024-05-01": {"count": 1}}, "x")
+    history.save_year(2024, [act(20, "2024-05-01T07:00:00Z"), act(21, "2024-04-01T07:00:00Z")],
+                      {"2024-05-01": {"count": 1}, "2024-04-01": {"count": 1}}, "x")
     calls = []
     def fake(url, token=None, **kw):
         if "/streams" in url:

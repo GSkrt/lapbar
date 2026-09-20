@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install pytest
+      - run: python -m pip install pytest duckdb      # duckdb is optional for LapBar itself; the export tests use it
       # The chart logic (charts/logic.js) is tested under node, which the runner has preinstalled.
       - run: node --version
       - run: python -m pytest -q

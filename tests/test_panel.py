@@ -81,3 +81,17 @@ def test_the_calendar_marks_days_whose_full_data_is_stored_and_shows_the_progres
     assert "cell.modelData.local === true" in PANEL and '"full data stored"' in PANEL   # the dot and its tooltip
     assert "readonly property string archiveLine" in PANEL and "Full time series stored: " in PANEL
     assert 'setting("downloadHistory", 12)' in PANEL
+
+
+def test_the_menu_opens_the_data_window_and_the_window_has_all_its_parts():
+    assert 'action: "manage"' in PANEL and '"manage",' in PANEL.split("function openManage")[1][:300]
+    manage = Path(__file__).resolve().parent.parent / "manage"
+    for name in ("shell.qml", "Theme.qml", "Btn.qml", "Field.qml", "Meter.qml", "Heading.qml", "Caption.qml"):
+        assert (manage / name).is_file(), name
+    window = (manage / "shell.qml").read_text()
+    assert window.count("{") == window.count("}")
+    for needle in ("Fetch history back to", "Fetching, day by day", "Export to DuckDB", "DuckDB is not installed",
+                   "What is in the database", "Save the database to", "Keep it up to date"):
+        assert needle in window, needle
+    assert "component " not in window        # inline components cannot see the window's ids; the parts are files
+    assert '"prefs", "--history-from"' in window and '"prefs", "--continuous"' in window and '"export"' in window

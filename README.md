@@ -230,6 +230,99 @@ needs each ride's second-by-second data, which does not fit the request allowanc
 the button sets your FTP to the estimate and recalculates at once; use the stepper (or **Clear FTP**) to change it
 afterwards. The estimate is never applied on its own, only when you click.
 
+### The data window and the DuckDB export
+
+**⋮ → Manage data…** (or `lapbar manage`) opens a window with three things:
+
+- **History.** How many activities you have on Strava, how many have their full data stored here (a bar, and the
+  size on disk with an estimate for when it is complete), and a **date limit**: *Fetch history back to* a day of
+  your choice, so LapBar never goes further into the past. Older activities are then not downloaded and are hidden
+  from the calendar; what is already stored stays on disk. The limit is saved in `~/.config/lapbar/prefs.json`.
+- **Fetching, day by day.** For each of the last 14 days (UTC, the day Strava's allowance resets on): how many
+  activities were stored, and the most requests Strava reported. Today's line shows how much of the daily
+  allowance is used.
+- **Export to DuckDB.** Builds a [DuckDB](https://duckdb.org) database from everything stored, for your own SQL.
+  Choose where the file goes (the default is `~/.local/share/lapbar/lapbar.duckdb`), press **Export now**
+  (only activities that are not in the file yet are added) or **Rebuild** (a fresh file), or switch on
+  *Keep it up to date*: after every refresh the new activities are appended, in the background. LapBar never reads the
+  database back, so you can open, query, copy or delete it freely. The window shows this schema beside the
+  settings, with example queries you can click to copy.
+
+**DuckDB is not installed with LapBar**, and the exporter is the only part that needs it. If it is missing the
+window says so and shows the install command; from a terminal:
+
+    omarchy pkg add python-duckdb          # or: sudo pacman -S python-duckdb
+    sudo pacman -S duckdb                  # optional: the `duckdb` command line, to query the file
+
+(The widget runs with the system Python, so the *package* has to be the system one; `pip install` into a user
+folder will not be seen.) Commands: `lapbar export [--path FILE] [--rebuild]`, `lapbar prefs --history-from
+YYYY-MM-DD|none --export-path FILE --continuous on|off`, `lapbar manage --status` (what the window shows, as JSON).
+
+**The schema.** Basic ride data is in `activities`; everything spatial joins to it on the activity id:
+
+- **`activities`**: One row per activity, the same details Strava's activity list has.
+- **`routes`**: The bridge to the spatial data: one row per activity with GPS, joined to activities on the id.
+- **`route_cells`**: Each route as the map cells (about 100 m) it passes through, so overlaps are a plain join, no extension needed.
+- **`samples`**: The complete second-by-second data of every archived activity, GPS included. The big table.
+- **`days`**: One row per day with activity: what the calendar shows.
+- **`records`**: Personal records and top-10 places on segments (and a run's best efforts), by name.
+- **`kudos`**: Who gave kudos, as Strava names people (first name and last initial).
+- **`meta`**: About this file.
+
+How they join:
+
+- `activities.id  <-  routes.activity_id`: one summary line per activity with GPS: the bridge from ride data to spatial data
+- `routes.activity_id  <-  route_cells.activity_id`: the map cells (about 100 m) that line passes through: overlaps are a join on cell_x, cell_y
+- `activities.id  <-  samples.activity_id`: every second of the activity, with lat and lon on each row
+- `activities.id  <-  records.activity_id, kudos.activity_id`: records by name, and who gave kudos
+
+`routes.geom` is a real `GEOMETRY` column, added only if DuckDB's `spatial` extension is already installed
+(`INSTALL spatial;` in DuckDB, which needs a network connection once); LapBar never downloads it. Without it, the
+`wkt` column works with `ST_GeomFromText` later, and `route_cells` gives route overlaps as a plain join.
+
+Kilometres per week:
+
+```sql
+SELECT date_trunc('week', start_local) AS week, round(sum(distance_km)) AS km
+FROM activities WHERE family = 'ride' GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
+```
+
+Best 20-minute power of each ride:
+
+```sql
+SELECT activity_id, round(max(w)) AS best_20min_w FROM (
+  SELECT activity_id, avg(watts) OVER (PARTITION BY activity_id ORDER BY t
+         ROWS BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w
+  FROM samples WHERE watts IS NOT NULL) GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
+```
+
+Rides that overlap the most:
+
+```sql
+SELECT x.name, y.name, count(*) AS shared_cells
+FROM route_cells a JOIN route_cells b USING (cell_x, cell_y)
+JOIN activities x ON x.id = a.activity_id JOIN activities y ON y.id = b.activity_id
+WHERE a.activity_id < b.activity_id GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 10;
+```
+
+Rides that start near a place:
+
+```sql
+SELECT a.start_local, a.name, a.distance_km
+FROM routes r JOIN activities a ON a.id = r.activity_id
+WHERE r.start_lat BETWEEN 46.04 AND 46.06 AND r.start_lon BETWEEN 14.49 AND 14.52;
+```
+
+Real geometry:
+
+```sql
+INSTALL spatial; LOAD spatial;
+SELECT id, ST_Length_Spheroid(ST_GeomFromText(wkt)) FROM routes JOIN activities ON id = activity_id;
+```
+
+The database holds your routes, so it is created with mode 600, and the temporary files used while loading are
+private and deleted straight away. Loading is fast (about 10 µs a row, so your whole archive is a couple of minutes).
+
 ### Refresh interval and Strava's request allowance
 
 Change how often LapBar asks Strava from the menu: **⋮ → Refresh every …** (1 minute to 1 hour, default 15
@@ -331,6 +424,8 @@ to run the real `secret-tool` fails the test. Run them with a venv that has `pyt
     lapbar streams <activity id> --refresh   # download the series again
     lapbar details <activity id>         # the ride's records and kudos names, as the popup asks for them (JSON)
     lapbar archive --limit 100           # store the full data (with GPS) of 100 more activities now
+    lapbar manage                        # the data window: history, fetching by day, DuckDB export
+    lapbar export [--rebuild]            # write the DuckDB database (needs the duckdb package)
     lapbar history --sync                # download the older years for the calendar now (--refresh: again, --years N)
 
 Its plotting logic lives in `charts/logic.js` (ticks, cursor lookup, zoom, formatting) and is unit-tested with

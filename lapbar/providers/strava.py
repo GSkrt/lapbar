@@ -226,15 +226,24 @@ def _fetch_year(token: str, year: int) -> list[dict]:
     return mine
 
 
+def since(activities, limit: str | None):
+    """The activities on or after `limit` ("YYYY-MM-DD"); all of them when there is no limit. Order is kept."""
+    for a in activities:
+        if not limit or str(a.get("start") or "")[:10] >= limit:
+            yield a
+
+
 def sync_history(token: str, this_year: int, max_years: int, budget: int = HISTORY_PER_REFRESH,
-                 refresh: bool = False) -> int:
+                 refresh: bool = False, not_before: str | None = None) -> int:
     """Download the years before `this_year` that are not stored yet, newest first, at most `budget` of them.
 
-    Stops at `max_years` back, at Strava's first year, or after EMPTY_YEARS_STOP empty years in a row.
-    Returns how many years were downloaded; `history.summary()["complete"]` says whether anything is left."""
+    Stops at `max_years` back, at Strava's first year, at the year of `not_before` (the user's limit), or after
+    EMPTY_YEARS_STOP empty years in a row. Returns how many years were downloaded;
+    `history.summary()["complete"]` says whether anything is left."""
     known = history.index()["years"]
     downloaded, empty_run, complete = 0, 0, True
-    for year in range(this_year - 1, max(this_year - 1 - max_years, FIRST_YEAR - 1), -1):
+    floor = max(this_year - 1 - max_years, FIRST_YEAR - 1, int(not_before[:4]) - 1 if not_before else 0)
+    for year in range(this_year - 1, floor, -1):
         entry = known.get(str(year))
         if entry is not None and not refresh:
             empty_run = empty_run + 1 if entry.get("count", 0) == 0 else 0
@@ -261,6 +270,7 @@ def fetch(
     optional: bool = True,
     ftp: int = 0,
     history_years: int = 0,
+    history_from: str | None = None,
 ) -> dict:
     """`previous` is the last summary; its elevation profile is reused while the latest ride is unchanged.
 
@@ -304,18 +314,21 @@ def fetch(
 
     if history_years and optional:
         try:  # older years for the calendar, a couple per refresh until all are stored; failures retry next time
-            sync_history(token_source.access_token(), now.year, history_years)
+            sync_history(token_source.access_token(), now.year, history_years, not_before=history_from)
         except (HttpError, OSError):
             pass
     days = {**history.merged_days(), **_days(year)}
+    if history_from:                      # the user's limit: nothing older is shown or counted
+        days = {d: v for d, v in days.items() if d >= history_from}
 
     listed = [_listed(a) for a in year]  # newest first
     events, kudos_seen, kudoers = kudos.track(
         token_source.access_token(), listed, previous, seed_limit=kudos.SEED_LIMIT if optional else 0)
-    total = len(listed) + sum(y.get("count", 0) for y in history.index()["years"].values())
+    total = sum(v.get("count", 0) for v in days.values())
     if backfill and optional and len(raw.known_ids()) < total:
         try:  # archive older activities' full series a few at a time (this year first, then the older years)
-            streams.backfill(token_source.access_token(), itertools.chain(listed, history.iter_activities()), backfill)
+            streams.backfill(token_source.access_token(),
+                             since(itertools.chain(listed, history.iter_activities()), history_from), backfill)
         except OSError:
             pass
     stored, known = raw.archived_ids(), raw.known_ids()

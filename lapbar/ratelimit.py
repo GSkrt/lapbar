@@ -62,6 +62,8 @@ def record(headers, now: float | None = None) -> None:
         with os.fdopen(fd, "w") as f:
             json.dump(state, f)
         tmp.replace(_file())
+        from . import fetchlog
+        fetchlog.note_requests(usage[1])
     except Exception:  # noqa: BLE001
         pass
 

@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime
 
-from . import auth, charts, config, details, fitness, history, mute, ratelimit, raw, setup, streams, vault
+from . import auth, charts, config, details, export, fitness, history, manage, mute, prefs, ratelimit, raw, setup, streams, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -72,7 +72,7 @@ def cmd_fetch(args) -> int:
         snap = ratelimit.check(kind)
         # Extras (history downloads, kudos name look-ups) only run on the timer and only with plenty of room.
         summary = strava.fetch(previous=_read_cache(), backfill=ratelimit.backfill_quota(snap, args.backfill), ftp=args.ftp,
-                               history_years=args.history_years,
+                               history_years=args.history_years, history_from=prefs.load()["history_from"],
                                optional=(kind == "auto" and ratelimit.allow_optional(snap)))
     except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
             HttpError, OSError) as e:
@@ -87,6 +87,10 @@ def cmd_fetch(args) -> int:
         return 1
     # Events are delivered once, on stdout; keeping them out of the cache means they can never replay.
     _write_cache({k: v for k, v in summary.items() if k != "kudos_events"})
+    try:
+        export.spawn_if_enabled()      # continuous DuckDB export, in its own process so the refresh stays quick
+    except OSError:
+        pass
     if args.print:
         summary["muted"] = mute.is_muted()
         summary["budget"] = ratelimit.summary(ratelimit.snapshot())
@@ -159,7 +163,8 @@ def cmd_history(args) -> int:
         try:
             ratelimit.check("action")
             token = auth.default_token_source().access_token()
-            done = strava.sync_history(token, datetime.now().year, args.years, budget=999, refresh=args.refresh)
+            done = strava.sync_history(token, datetime.now().year, args.years, budget=999, refresh=args.refresh,
+                                       not_before=prefs.load()["history_from"])
         except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
                 HttpError, OSError) as e:
             code, message = _classify(e)
@@ -181,7 +186,8 @@ def cmd_history(args) -> int:
 def cmd_archive(args) -> int:
     """Download the full time series (with GPS) of activities that are not stored yet, now: `--limit` of them."""
     cache = _read_cache() or {}
-    activities = itertools.chain(cache.get("activities", []), history.iter_activities())
+    activities = strava.since(itertools.chain(cache.get("activities", []), history.iter_activities()),
+                              prefs.load()["history_from"])
     try:
         ratelimit.check("action")
         token = auth.default_token_source().access_token()
@@ -192,6 +198,48 @@ def cmd_archive(args) -> int:
         print(json.dumps({"error": code, "message": message}))
         return 1
     print(json.dumps({"downloaded": done, "stored": len(raw.archived_ids()), "known": len(raw.known_ids())}))
+    return 0
+
+
+def cmd_manage(args) -> int:
+    """The data window (default), or its status as JSON."""
+    if args.status:
+        print(json.dumps(manage.status()))
+        return 0
+    theme = {f"LAPBAR_{k}": v for k, v in (("FG", args.fg), ("BG", args.bg), ("ACCENT", args.accent), ("FONT", args.font)) if v}
+    manage.open_window(theme)
+    print(json.dumps({"ok": True}))
+    return 0
+
+
+def cmd_prefs(args) -> int:
+    changes = {}
+    if args.history_from is not None:
+        changes["history_from"] = None if args.history_from.lower() in ("none", "") else args.history_from
+    if args.export_path is not None:
+        changes["export_path"] = args.export_path
+    if args.continuous is not None:
+        changes["export_continuous"] = args.continuous == "on"
+    try:
+        current = prefs.update(**changes) if changes else prefs.load()
+    except ValueError as e:
+        print(json.dumps({"error": "bad_value", "message": f"That is not a valid date (use YYYY-MM-DD): {e}"}))
+        return 1
+    print(json.dumps({"prefs": current}))
+    return 0
+
+
+def cmd_export(args) -> int:
+    """Create or update the DuckDB database from everything stored."""
+    try:
+        result = export.sync(args.path, rebuild=args.rebuild)
+    except export.DuckdbMissing as e:
+        print(json.dumps({"error": "duckdb_missing", "message": str(e), "install": export.INSTALL_COMMANDS}))
+        return 1
+    except (export.ExportBusy, ValueError, OSError) as e:
+        print(json.dumps({"error": "export_failed", "message": str(e)}))
+        return 1
+    print(json.dumps(result))
     return 0
 
 
@@ -283,6 +331,20 @@ def main(argv: list[str] | None = None) -> None:
     archive_p = sub.add_parser("archive", help="download the full time series (with GPS) of activities not stored yet")
     archive_p.add_argument("--limit", type=int, default=50, metavar="N", help="how many to download now (default 50)")
     archive_p.set_defaults(func=cmd_archive)
+    manage_p = sub.add_parser("manage", help="open the data window: history, fetching by day, DuckDB export")
+    manage_p.add_argument("--status", action="store_true", help="print what the window shows, as JSON")
+    for flag in ("--fg", "--bg", "--accent", "--font"):
+        manage_p.add_argument(flag, default=None)
+    manage_p.set_defaults(func=cmd_manage)
+    prefs_p = sub.add_parser("prefs", help="show or change LapBar's preferences (JSON)")
+    prefs_p.add_argument("--history-from", metavar="YYYY-MM-DD|none", help="earliest day to fetch and show")
+    prefs_p.add_argument("--export-path", metavar="FILE", help="where the DuckDB database goes")
+    prefs_p.add_argument("--continuous", choices=("on", "off"), help="update the database after every refresh")
+    prefs_p.set_defaults(func=cmd_prefs)
+    export_p = sub.add_parser("export", help="export everything stored into a DuckDB database")
+    export_p.add_argument("--path", metavar="FILE", help="database file (default: the saved path)")
+    export_p.add_argument("--rebuild", action="store_true", help="build a fresh file instead of updating")
+    export_p.set_defaults(func=cmd_export)
     charts_p = sub.add_parser("charts", help="open the chart window for an activity")
     charts_p.add_argument("activity", type=int)
     charts_p.add_argument("--refresh", action="store_true", help="download the data again first")

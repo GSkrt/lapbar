@@ -486,6 +486,7 @@ Panel {
     out.push({ label: root.muted ? "Unmute kudos alerts" : "Mute kudos alerts", action: "mute" })
     out.push({ label: "Refresh every " + root.intervalLabel(root.refreshIntervalSec) + "\u2026", action: "interval" })
     out.push({ label: "FTP: " + (root.ftp > 0 ? root.ftp + " W" : "not set") + "\u2026", action: "ftp" })
+    out.push({ label: "Manage data\u2026", action: "manage" })
     out.push({ label: "Update credentials or sign in\u2026", action: "setup" })
     out.push({ label: "Open Strava API settings", action: "api" })
     out.push({ label: "About LapBar", action: "about" })
@@ -501,6 +502,7 @@ Panel {
     root.menuOpen = false
     if (action === "refresh") root.refresh(true)
     else if (action === "mute") root.setMuted("toggle")
+    else if (action === "manage") root.openManage()
     else if (action === "setup") root.openSetup()
     else if (action === "api") root.openLink("https://www.strava.com/settings/api")
   }
@@ -828,6 +830,14 @@ Panel {
     root.chartsMessage = ""
     chartsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "fitness",
       "--fg", String(root.foreground), "--bg", String(Color.background), "--font", root.fontFamily]
+    chartsProcess.running = true
+  }
+
+  // The data window: history stored, fetching by day, and the DuckDB export (its own process, like the charts).
+  function openManage() {
+    if (chartsProcess.running) return
+    chartsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "manage",
+      "--fg", String(root.foreground), "--bg", String(Color.background), "--accent", String(Color.accent), "--font", root.fontFamily]
     chartsProcess.running = true
   }
 
