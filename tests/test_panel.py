@@ -111,16 +111,18 @@ def test_motivational_quotes_are_a_radio_group_in_the_popup_not_a_menu_item():
 
 
 def test_excuses_are_chips_in_the_window_and_marked_on_the_calendar():
-    assert 'model: ["tired", "weather", "time", "unwell", "rest"]' in PANEL
+    assert 'model: [["tired", "weather", "time"], ["unwell", "rest"]]' in PANEL
     assert 'root.coachSet(["excuse", chip.modelData])' in PANEL
     assert 'excuse: root.excuses[key] || ""' in PANEL and "skipped: " in PANEL
     assert "cell.modelData.excuse" in PANEL
 
 
-def test_a_third_row_spans_the_popup_with_totals_the_controls_and_the_strava_credit():
-    row = PANEL[PANEL.index("id: bottomRow"):]
-    assert "anchors.top: layout.bottom" in row
-    for part in ("id: totalsRow", "// \"skipping today?\"", "// \"Motivational quotes\"", "source: root.stravaLogo"):
-        assert part in row
+def test_a_third_column_holds_the_calendar_totals_controls_and_the_strava_credit():
+    col = PANEL[PANEL.index("id: thirdCol"):]
+    for part in ("// ---------- calendar of active days", "id: totalsRow", "source: root.stravaLogo"):
+        assert part in col
+    middle = PANEL[PANEL.index("id: rightCol"):PANEL.index("id: thirdCol")]
+    assert "// \"skipping today?\"" in middle and "// \"Motivational quotes\"" in middle
+    assert "(width - spacing * 2) / 3" in PANEL and "root.wide ? 1000 : 340" in PANEL
     left = PANEL[PANEL.index("id: leftCol"):PANEL.index("id: rightCol")]
     assert "visible: !!root.summary\n          source: root.stravaLogo" not in left       # the credit left the left column

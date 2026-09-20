@@ -69,7 +69,7 @@ Click the button. Each numbered part is explained below the picture.
 
 ## Motivational quotes and skipping a day
 
-In the bottom row of the popup, **Motivational quotes** has three choices: **Silent** (the default), **Motivational**
+In the middle column of the popup, **Motivational quotes** has three choices: **Silent** (the default), **Motivational**
 and **Drill sergeant**. Pick one and LapBar sends you a desktop popup now and then, when your data says it makes
 sense: several days without a ride, your form falling, or a comeback after a long break. The motivational voice is
 mellow (a walk, an easy spin, a stretch). The drill sergeant shouts at your chair and never at you. **Try one** shows a
@@ -78,7 +78,7 @@ sample.
 It has some sense: no popups on a recovery week or when your form is already low, none during quiet hours (22:00 to
 08:00), and never more than a few a day.
 
-Not today? In the bottom row, tap **I'm tired**, **Bad weather**, **No time**, **Not feeling well** or **Planned rest
+Not today? In the middle column, tap **I'm tired**, **Bad weather**, **No time**, **Not feeling well** or **Planned rest
 day**. The day gets a ring on the calendar (hover it to see the reason) and the coach leaves you alone for it. The
 popups have the same buttons, so you can skip straight from the notification.
 

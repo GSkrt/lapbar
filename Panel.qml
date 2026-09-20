@@ -135,7 +135,7 @@ Panel {
   function fmtClimb(m) { return "\u2191 " + Math.round(m).toLocaleString(Qt.locale("en_US"), "f", 0) + " m" }
 
   // [{label, value}] per sport family, most time spent first (the CLI already sorts them).
-  // Today (hidden while empty), this week, this month and this year, shown side by side in the third row.
+  // Today (hidden while empty), this week, this month and this year, shown in the third column.
   readonly property var totalsBlocks: {
     if (!root.summary) return []
     var all = [{ title: "Today", t: root.summary.today, hideEmpty: true }, { title: "This week", t: root.summary.week },
@@ -1060,8 +1060,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(root.wide ? 660 : 340))
-    contentHeight: panel.fittedContentHeight(Math.max(leftCol.implicitHeight, root.wide ? rightCol.implicitHeight : 0) + (root.wide ? bottomRow.implicitHeight + Style.spacing.panelGap : 0))
+    contentWidth: panel.fittedContentWidth(Style.space(root.wide ? 1000 : 340))
+    contentHeight: panel.fittedContentHeight(Math.max(leftCol.implicitHeight, root.wide ? Math.max(rightCol.implicitHeight, thirdCol.implicitHeight) : 0))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -1076,7 +1076,7 @@ Panel {
         anchors.top: parent.top
         spacing: Style.space(24)
 
-        readonly property real colWidth: root.wide ? (width - spacing) / 2 : width
+        readonly property real colWidth: root.wide ? (width - spacing * 2) / 3 : width
 
         // ---- left: the activity itself
         Column {
@@ -2357,6 +2357,183 @@ Panel {
 
         PanelSeparator { visible: !!root.summary; foreground: root.foreground }
 
+
+        PanelSeparator { foreground: root.foreground }
+
+        Column {                                              // "skipping today?": the reason is marked on the calendar
+          width: parent.width
+          spacing: Style.spacing.sm
+
+          Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: root.todayExcuse !== "" ? "Skipping today: " + root.excuseLabel(root.todayExcuse) : "Skipping today?"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Repeater {
+            model: [["tired", "weather", "time"], ["unwell", "rest"]]
+
+            Item {
+              required property var modelData
+              width: parent.width
+              height: chipsRow.height
+
+              Row {
+                id: chipsRow
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Style.space(6)
+
+                Repeater {
+                  model: parent.parent.modelData
+
+                  Rectangle {
+                    id: chip
+                    required property string modelData
+                    readonly property bool on: root.todayExcuse === modelData
+                    width: chipText.implicitWidth + Style.space(16)
+                    height: Style.space(24)
+                    radius: height / 2
+                    color: chip.on ? Qt.rgba(0.90, 0.71, 0.13, 0.28) : (chipMouse.containsMouse ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : "transparent")
+                    border.width: 1
+                    border.color: chip.on ? "#e6b422" : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
+
+                    Text {
+                      id: chipText
+                      anchors.centerIn: parent
+                      text: root.excuseLabel(chip.modelData)
+                      color: chip.on ? root.foreground : root.dim
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                    }
+
+                    MouseArea {
+                      id: chipMouse
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.coachSet(["excuse", chip.modelData])
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        Column {                                              // "Motivational quotes": Silent, Motivational or Drill sergeant
+          width: parent.width
+          spacing: Style.spacing.sm
+
+          Text {
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            text: "Motivational quotes"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Item {
+            width: parent.width
+            height: radioRow.height
+
+            Row {
+              id: radioRow
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: Style.space(10)
+
+              Repeater {
+                model: root.coachModes
+
+                Item {
+                  id: radio
+                  required property var modelData
+                  readonly property bool on: root.coachTone === modelData.id
+                  width: radioDot.width + radioLabel.implicitWidth + Style.space(6)
+                  height: Style.space(20)
+
+                  Rectangle {
+                    id: radioDot
+                    width: Style.space(14)
+                    height: Style.space(14)
+                    radius: width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: "transparent"
+                    border.width: 1
+                    border.color: radio.on ? root.foreground : root.dim
+
+                    Rectangle {
+                      anchors.centerIn: parent
+                      width: Style.space(8)
+                      height: Style.space(8)
+                      radius: width / 2
+                      color: root.foreground
+                      visible: radio.on
+                    }
+                  }
+
+                  Text {
+                    id: radioLabel
+                    anchors.left: radioDot.right
+                    anchors.leftMargin: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: radio.modelData.label
+                    color: radio.on ? root.foreground : root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: radio.on
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.coachSet(["prefs", "--coach-tone", radio.modelData.id])
+                  }
+                }
+              }
+
+            }
+          }
+
+          Item {
+            visible: root.coachTone !== "off"
+            width: parent.width
+            height: tryText.height
+
+          Text {
+    id: tryText
+            visible: root.coachTone !== "off"
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Try one  \u2197"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -Style.space(4)
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                if (coachTryProc.running) return
+                coachTryProc.command = ["/usr/bin/python3", "-I", root.launcher, "coach", "--test"]
+                coachTryProc.running = true
+              }
+            }
+          }
+          }
+        }
+        }
+
+        // ---- third column: the calendar, the totals, and what to do when you skip a day
+        Column {
+          id: thirdCol
+          visible: root.wide
+          width: layout.colWidth
+          spacing: Style.spacing.panelGap
+
         // ---------- calendar of active days ----------
 
         Item {
@@ -2662,26 +2839,14 @@ Panel {
             }
           }
         }
-        }
-      }
-
-      // ---- the third row, across the whole width: totals side by side, the skip and coach controls, the Strava credit
-      Column {
-        id: bottomRow
-        visible: root.wide
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: layout.bottom
-        anchors.topMargin: Style.spacing.panelGap
-        spacing: Style.spacing.panelGap
 
         PanelSeparator { foreground: root.foreground }
 
-        Grid {                                                // Today, this week, this month, this year: two by two
+
+        Column {                                              // Today, this week, this month, this year
           id: totalsRow
-          columns: 2
-          columnSpacing: Style.space(24)
-          rowSpacing: Style.spacing.panelGap
+          width: parent.width
+          spacing: Style.spacing.panelGap
 
           Repeater {
             model: root.totalsBlocks
@@ -2689,7 +2854,7 @@ Panel {
             Column {
               id: totalsBlock
               required property var modelData
-              width: (bottomRow.width - totalsRow.columnSpacing) / 2
+              width: thirdCol.width
               spacing: Style.spacing.sm
 
               Text {
@@ -2740,161 +2905,6 @@ Panel {
           }
         }
 
-        PanelSeparator { foreground: root.foreground }
-
-        Column {                                              // "skipping today?": the reason is marked on the calendar
-          width: parent.width
-          spacing: Style.spacing.sm
-
-          Text {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: root.todayExcuse !== "" ? "Skipping today: " + root.excuseLabel(root.todayExcuse) : "Skipping today?"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-          }
-
-          Item {
-            width: parent.width
-            height: chipsRow.height
-
-            Row {
-              id: chipsRow
-              anchors.horizontalCenter: parent.horizontalCenter
-              spacing: Style.space(6)
-
-              Repeater {
-                model: ["tired", "weather", "time", "unwell", "rest"]
-
-                Rectangle {
-                  id: chip
-                  required property string modelData
-                  readonly property bool on: root.todayExcuse === modelData
-                  width: chipText.implicitWidth + Style.space(16)
-                  height: Style.space(24)
-                  radius: height / 2
-                  color: chip.on ? Qt.rgba(0.90, 0.71, 0.13, 0.28) : (chipMouse.containsMouse ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : "transparent")
-                  border.width: 1
-                  border.color: chip.on ? "#e6b422" : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
-
-                  Text {
-                    id: chipText
-                    anchors.centerIn: parent
-                    text: root.excuseLabel(chip.modelData)
-                    color: chip.on ? root.foreground : root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.caption
-                  }
-
-                  MouseArea {
-                    id: chipMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.coachSet(["excuse", chip.modelData])
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        Column {                                              // "Motivational quotes": Silent, Motivational or Drill sergeant
-          width: parent.width
-          spacing: Style.spacing.sm
-
-          Text {
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
-            text: "Motivational quotes"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-          }
-
-          Item {
-            width: parent.width
-            height: radioRow.height
-
-            Row {
-              id: radioRow
-              anchors.horizontalCenter: parent.horizontalCenter
-              spacing: Style.space(18)
-
-              Repeater {
-                model: root.coachModes
-
-                Item {
-                  id: radio
-                  required property var modelData
-                  readonly property bool on: root.coachTone === modelData.id
-                  width: radioDot.width + radioLabel.implicitWidth + Style.space(6)
-                  height: Style.space(20)
-
-                  Rectangle {
-                    id: radioDot
-                    width: Style.space(14)
-                    height: Style.space(14)
-                    radius: width / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: "transparent"
-                    border.width: 1
-                    border.color: radio.on ? root.foreground : root.dim
-
-                    Rectangle {
-                      anchors.centerIn: parent
-                      width: Style.space(8)
-                      height: Style.space(8)
-                      radius: width / 2
-                      color: root.foreground
-                      visible: radio.on
-                    }
-                  }
-
-                  Text {
-                    id: radioLabel
-                    anchors.left: radioDot.right
-                    anchors.leftMargin: Style.space(6)
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: radio.modelData.label
-                    color: radio.on ? root.foreground : root.dim
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.bodySmall
-                    font.bold: radio.on
-                  }
-
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.coachSet(["prefs", "--coach-tone", radio.modelData.id])
-                  }
-                }
-              }
-
-              Text {
-                visible: root.coachTone !== "off"
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Try one  \u2197"
-                color: root.dim
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-
-                MouseArea {
-                  anchors.fill: parent
-                  anchors.margins: -Style.space(4)
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: {
-                    if (coachTryProc.running) return
-                    coachTryProc.command = ["/usr/bin/python3", "-I", root.launcher, "coach", "--test"]
-                    coachTryProc.running = true
-                  }
-                }
-              }
-            }
-          }
-        }
-
         Item {                                                // the required credit, bottom right
           width: parent.width
           height: Style.space(16)
@@ -2907,6 +2917,7 @@ Panel {
             fillMode: Image.PreserveAspectFit
             horizontalAlignment: Image.AlignRight
           }
+        }
         }
       }
     }
