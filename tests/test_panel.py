@@ -29,6 +29,14 @@ def test_the_interval_can_go_down_to_a_minute_and_the_menu_offers_it():
     assert "{ sec: 60," in PANEL and "refreshIntervalSec" in PANEL and '"bar", "set", root.moduleName' in PANEL
 
 
+def test_settings_written_from_the_widget_get_the_environment_omarchy_needs():
+    # `omarchy bar set` aborts with "OMARCHY_PATH: unbound variable" in a stripped environment, which made the
+    # FTP and refresh-interval menu entries do nothing at all.
+    assert re.search(r'"OMARCHY_PATH"\]', PANEL) and 'OMARCHY_PATH: "/usr/share/omarchy"' in PANEL
+    for call in re.findall(r'"bar", "set".{0,400}', PANEL, re.S):
+        assert "desktopEnvironment" in PANEL[PANEL.index(call):PANEL.index(call) + 700] or "ftpProcess" in call
+
+
 def test_the_menu_can_set_the_ftp_and_the_estimate_button_applies_it_when_clicked():
     assert 'action: "ftp"' in PANEL and "Estimate from my rides" in PANEL
     assert 'onClicked: root.setFtp(root.ftpEstimate.watts)' in PANEL   # the button saves the estimate itself

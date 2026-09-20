@@ -48,7 +48,8 @@ Panel {
   readonly property var desktopEnvironment: root.passthroughEnv(
     ["HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR",
      "DBUS_SESSION_BUS_ADDRESS", "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "XDG_DATA_DIRS",
-     "XDG_CONFIG_DIRS", "HYPRLAND_INSTANCE_SIGNATURE"], { PATH: "/usr/bin:/usr/share/omarchy/bin" })
+     "XDG_CONFIG_DIRS", "HYPRLAND_INSTANCE_SIGNATURE", "OMARCHY_PATH"],
+    { PATH: "/usr/bin:/usr/share/omarchy/bin", OMARCHY_PATH: "/usr/share/omarchy" })   // `omarchy bar set` fails without OMARCHY_PATH
 
   // ------------------------------------------------------------------- state
 
@@ -316,7 +317,11 @@ Panel {
     command: []
     clearEnvironment: true
     environment: root.desktopEnvironment
-    onExited: root.refresh(true, ftpProcess.pendingFtp)      // recalculate at once, with the value just saved
+    stderr: StdioCollector { id: ftpErr; waitForEnd: true }
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode !== 0) { console.warn("lapbar: saving the FTP failed (" + exitCode + "): " + ftpErr.text); return }
+      root.refresh(true, ftpProcess.pendingFtp)                  // recalculate at once, with the value just saved
+    }
   }
 
   // LapBar's own logo (assets/logo), white on dark themes and black on light ones. It is shown larger than Strava's,
