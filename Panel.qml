@@ -72,6 +72,7 @@ Panel {
   property string selectedDay: ""
   property bool calendarOpen: true
   readonly property var shown: root.selected || root.latest
+  readonly property var shownId: root.shown ? root.shown.id : 0
   readonly property bool showingOlder: !!(root.selected && root.latest && root.selected.id !== root.latest.id)
   readonly property var route: (root.shown && root.shown.route) ? root.shown.route : []
   readonly property bool needsSetup: root.errorCode === "not_configured" || root.errorCode === "not_authorized"
@@ -225,7 +226,90 @@ Panel {
     root.selected = list[0]
   }
 
-  onShownChanged: root.chartsMessage = ""
+  onShownChanged: { root.chartsMessage = ""; root.loadDetails() }
+  onShownIdChanged: { root.achievementsPref = 0; root.achievementsAll = false }
+
+  // ------------------------------------------------ records (PRs, KOMs) and kudos names of the ride shown
+
+  property var detailsById: ({})        // {activity id: {records, kudoers, failed}}, filled by `lapbar details` for rides other than the latest
+  property int achievementsPref: 0      // 0 = open only when short, 1 = the user opened it, -1 = the user closed it
+  property bool achievementsAll: false
+
+  function recordsOf(l) {
+    if (!l) return []
+    if (l.records) return l.records
+    var lat = root.summary ? root.summary.latest : null
+    if (lat && lat.id === l.id && lat.records) return lat.records
+    var d = root.detailsById[String(l.id)]
+    return d && d.records ? d.records : []
+  }
+
+  function kudoersOf(l) {
+    if (!l || !(l.kudos > 0)) return []
+    var known = root.summary ? (root.summary.kudoers || {})[String(l.id)] : null
+    if (known && known.length > 0) return known
+    var d = root.detailsById[String(l.id)]
+    return d && d.kudoers ? d.kudoers : []
+  }
+
+  readonly property var shownRecords: root.recordsOf(root.shown)
+  readonly property var shownKudoers: root.kudoersOf(root.shown)
+  readonly property bool wantsAchievements: !!root.shown && (root.shown.prs > 0 || root.shown.achievements > 0 || root.shown.kudos > 0)
+  readonly property int achievementRows: root.shownRecords.length + Math.ceil(root.shownKudoers.length / 2)
+  // Short lists start open; a long one starts folded so the popup does not grow past the screen (like the calendar).
+  readonly property bool achievementsOpen: root.achievementsPref === 0 ? root.achievementRows <= 8 : root.achievementsPref > 0
+
+  readonly property string achievementsSummary: {
+    var n = root.shownRecords.length          // Strava's word for PRs of any rank and top-10 places
+    var parts = []
+    if (n > 0) parts.push(n + (n === 1 ? " achievement" : " achievements"))
+    var k = root.shown ? root.shown.kudos : 0
+    if (k > 0) parts.push(k + (k === 1 ? " kudo" : " kudos"))
+    return parts.join(" · ")
+  }
+
+  function recordLabel(r) {
+    if (r.kind === "kom") return r.rank === 1 ? "KOM/QOM" : "Top 10 (#" + r.rank + ")"
+    return r.rank === 1 ? "PR" : (r.rank === 2 ? "2nd fastest" : "3rd fastest")
+  }
+
+  function medalColor(r) {
+    return r.rank === 1 ? "#e6b422" : (r.rank === 2 ? "#b8bcc4" : (r.rank === 3 ? "#cd7f32" : root.dim))
+  }
+
+  // Time an effort took: m:ss, or h:mm:ss.
+  function fmtEffort(seconds) {
+    if (seconds === undefined || seconds === null) return ""
+    var h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.round(seconds % 60)
+    return h > 0 ? h + ":" + pad2(m) + ":" + pad2(s) : m + ":" + pad2(s)
+  }
+
+  function needsDetails(l) {
+    if (!l || !l.id) return false
+    var d = root.detailsById[String(l.id)]
+    if (d && !d.failed) return false
+    return ((l.prs > 0 || l.achievements > 0) && root.recordsOf(l).length === 0) || (l.kudos > 0 && root.kudoersOf(l).length === 0)
+  }
+
+  // Only while the popup is open, and one ride at a time; a stored answer costs no request to Strava.
+  function loadDetails() {
+    if (!root.opened || detailsProcess.running || !root.needsDetails(root.shown)) return
+    detailsProcess.wantedId = root.shown.id
+    detailsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "details", String(root.shown.id)]
+    detailsProcess.running = true
+  }
+
+  function handleDetails(id, text) {
+    var entry = { records: [], kudoers: [], failed: true }
+    try {
+      var p = JSON.parse(text)
+      if (!p.error) entry = { records: p.records || [], kudoers: p.kudoers || [], failed: false }
+    } catch (e) { }
+    var map = Object.assign({}, root.detailsById)
+    map[String(id)] = entry
+    root.detailsById = map
+    if (root.shown && String(root.shown.id) !== String(id)) root.loadDetails()   // the ride shown changed meanwhile
+  }
 
   function backToLatest() {
     root.selected = null
@@ -392,12 +476,12 @@ Panel {
 
   // -------------------------------------------------------------- icons (Nerd Font, Material Design)
 
-  // Kudos and records use a heart and a medal on purpose: Strava's own kudos (thumbs up) and PR (trophy) icons are
-  // theirs, and LapBar should not look like it is copying them.
+  // As on Strava's own pages: a medal for a personal record (PR) and a cup for a top place on a segment (KOM/QOM).
+  // Kudos get a heart rather than Strava's thumbs up.
   readonly property var glyphs: ({
     ride: 0xF00A3, run: 0xF070E, walk: 0xF0583, swim: 0xF04E3, paddle: 0xF08AF, winter: 0xF0717,
     skate: 0xF0D35, gym: 0xF01E6, other: 0xF140B,
-    kudos: 0xF02D1, pr: 0xF0987, up: 0xF005D, down: 0xF0045, even: 0xF01FC, week: 0xF00ED,
+    kudos: 0xF02D1, pr: 0xF0987, kom: 0xF0538, up: 0xF005D, down: 0xF0045, even: 0xF01FC, week: 0xF00ED,
     bell: 0xF009A, bellOff: 0xF009B
   })
 
@@ -688,6 +772,17 @@ Panel {
   }
 
   Process {
+    id: detailsProcess
+    property var wantedId: 0
+    running: false
+    command: []
+    clearEnvironment: true
+    environment: root.fetchEnvironment
+    stdout: StdioCollector { id: detailsOut; waitForEnd: true }
+    onExited: root.handleDetails(detailsProcess.wantedId, detailsOut.text)
+  }
+
+  Process {
     id: muteProcess
     running: false
     command: []
@@ -745,6 +840,7 @@ Panel {
       root.aboutOpen = false
       root.intervalOpen = false
       root.ftpOpen = false
+      root.loadDetails()
       if (Date.now() - root.lastUpdatedAt > 120000) root.refresh(true)
     }
   }
@@ -1347,6 +1443,180 @@ Panel {
 
         PanelSeparator { foreground: root.foreground }
 
+        // ---------- records and kudos, right under the ride's description ----------
+
+        Column {
+          id: achievementsBox
+          visible: root.wantsAchievements
+          width: parent.width
+          spacing: Style.spacing.sm
+
+          Item {
+            width: parent.width
+            height: achievementsToggle.implicitHeight + Style.space(4)
+
+            Text {
+              id: achievementsToggle
+              anchors.verticalCenter: parent.verticalCenter
+              text: (root.achievementsOpen ? "\u25be  " : "\u25b8  ") + "Records & kudos"
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+              font.bold: true
+            }
+
+            Text {
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              visible: !root.achievementsOpen
+              text: root.achievementsSummary
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.achievementsPref = root.achievementsOpen ? -1 : 1
+            }
+          }
+
+          Text {
+            visible: root.achievementsOpen && detailsProcess.running && root.shownRecords.length === 0 && root.shownKudoers.length === 0
+            text: "Loading\u2026"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          // PRs (a medal) and top places (a cup), with the time each was achieved in
+          Column {
+            id: recordsTable
+            visible: root.achievementsOpen && root.shownRecords.length > 0
+            width: parent.width
+            spacing: Style.space(2)
+
+            Repeater {
+              model: root.achievementsAll ? root.shownRecords : root.shownRecords.slice(0, 6)
+
+              Item {
+                id: recordRow
+                required property var modelData
+                width: recordsTable.width
+                height: Style.space(22)
+
+                Text {
+                  id: recordIcon
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Style.space(22)
+                  text: root.icon(recordRow.modelData.kind)
+                  color: root.medalColor(recordRow.modelData)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
+                }
+
+                Text {
+                  id: recordLabel
+                  anchors.left: recordIcon.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Style.space(92)
+                  elide: Text.ElideRight
+                  text: root.recordLabel(recordRow.modelData)
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: true
+                }
+
+                Text {
+                  id: recordTime
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.fmtEffort(recordRow.modelData.seconds)
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+
+                Text {
+                  anchors.left: recordLabel.right
+                  anchors.right: recordTime.left
+                  anchors.rightMargin: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+                  elide: Text.ElideRight
+                  textFormat: Text.PlainText
+                  text: recordRow.modelData.name
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+            }
+          }
+
+          // who gave kudos, as Strava names them (first name and last initial)
+          Column {
+            id: kudosTable
+            visible: root.achievementsOpen && root.shownKudoers.length > 0
+            width: parent.width
+            spacing: Style.space(2)
+
+            Text {
+              text: root.icon("kudos") + "  Kudos (" + (root.shown ? root.shown.kudos : 0) + ")"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+
+            Grid {
+              columns: 2
+              columnSpacing: Style.space(12)
+              rowSpacing: Style.space(2)
+              width: parent.width
+
+              Repeater {
+                model: root.achievementsAll ? root.shownKudoers : root.shownKudoers.slice(0, 12)
+
+                Text {
+                  required property var modelData
+                  width: (kudosTable.width - Style.space(12)) / 2
+                  elide: Text.ElideRight
+                  textFormat: Text.PlainText
+                  text: modelData
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                }
+              }
+            }
+
+            Text {
+              visible: !!root.shown && root.shown.kudos > root.shownKudoers.length
+              text: "and " + (root.shown ? root.shown.kudos - root.shownKudoers.length : 0) + " more that Strava does not list"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+            }
+          }
+
+          Text {
+            visible: root.achievementsOpen && (root.shownRecords.length > 6 || root.shownKudoers.length > 12)
+            text: root.achievementsAll ? "Show fewer" : "Show all (" + (root.shownRecords.length + root.shownKudoers.length) + ")"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.underline: true
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.achievementsAll = !root.achievementsAll
+            }
+          }
+        }
+
         // ---------- welcome / setup ----------
 
         Column {
@@ -1583,21 +1853,6 @@ Panel {
           color: root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.body
-        }
-
-        Text {
-          id: kudosFrom
-          width: parent.width
-          wrapMode: Text.WordWrap
-          text: {
-            var all = (root.summary && root.shown) ? (root.summary.kudoers || {})[String(root.shown.id)] : null
-            if (!all || all.length === 0) return ""
-            return "From " + all.slice(0, 3).join(", ") + (all.length > 3 ? " and " + (all.length - 3) + " more" : "")
-          }
-          visible: kudosFrom.text !== ""
-          color: root.dim
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.caption
         }
 
         Text {

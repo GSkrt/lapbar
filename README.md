@@ -149,6 +149,13 @@ up to date, and the own-app mode described above will keep working either way.
   a sport icon, this week's total, kudos and PRs of the latest activity (only when there are any), and your
   training load compared with last week. Hover shows when Strava was last polled, the latest activity's name,
   kudos and PRs, and the load comparison.
+- **Records and kudos** sit right under the ride's description, in a section that folds like the calendar (it
+  starts folded when the list is long, so the popup never outgrows the screen). A **medal** marks a personal record
+  (PR: your 1st, 2nd or 3rd fastest time on a segment, or a run's best efforts such as your fastest 5k), a **cup** a
+  top-10 place among everyone on a segment (1st is the KOM/QOM), each with the segment's name and the time it was
+  achieved in. Below that is who gave **kudos**, as Strava names them: first name and last initial, which is all
+  Strava's API returns for other people. Everything is fetched once per ride (two requests at most) and stored, and
+  for rides other than the latest only when you look at them.
 - **Training load** compares this week so far with last week *up to the same moment of the week*, and shows
   what is still needed to beat last week's total. `loadMetric` chooses the measure: `time` (default, works for
   every sport), `distance`, or `effort` (Strava's Relative Effort; needs a heart-rate device, falls back to time).
@@ -301,6 +308,7 @@ to run the real `secret-tool` fails the test. Run them with a venv that has `pyt
 
     lapbar charts <activity id>          # downloads once if needed, then opens the window
     lapbar streams <activity id> --refresh   # download the series again
+    lapbar details <activity id>         # the ride's records and kudos names, as the popup asks for them (JSON)
 
 Its plotting logic lives in `charts/logic.js` (ticks, cursor lookup, zoom, formatting) and is unit-tested with
 `node`; the window itself is `charts/shell.qml` + `charts/SeriesPanel.qml`, drawn with Qt Quick's built-in

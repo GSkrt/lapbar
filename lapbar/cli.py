@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-from . import auth, charts, config, fitness, mute, ratelimit, setup, streams, vault
+from . import auth, charts, config, details, fitness, mute, ratelimit, setup, streams, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -122,6 +122,30 @@ def cmd_streams(args) -> int:
     return 1 if error else 0
 
 
+def cmd_details(args) -> int:
+    """The records and kudos names of one activity, for the popup: from what is stored, else downloaded once."""
+    cache = _read_cache() or {}
+    activity = next((a for a in cache.get("activities", []) if a.get("id") == args.activity), None)
+    if activity is None:
+        print(json.dumps({"error": "unknown_activity", "message": "That activity is not in the cached list (this year's only)."}))
+        return 1
+    known = (cache.get("kudoers") or {}).get(str(activity["id"]))
+    try:
+        token = None
+        if details.needs_download(activity, known):
+            ratelimit.check("action")          # stored answers cost nothing, so only a download is checked
+            token = auth.default_token_source().access_token()
+        out = {"id": activity["id"], "records": details.records(token, activity),
+               "kudoers": details.kudoers(token, activity, known)}
+    except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
+            HttpError, OSError) as e:
+        code, message = _classify(e)
+        print(json.dumps({"error": code, "message": message}))
+        return 1
+    print(json.dumps(out))
+    return 0
+
+
 def cmd_charts(args) -> int:
     data, error = _series_data(args)
     if error:
@@ -197,6 +221,9 @@ def main(argv: list[str] | None = None) -> None:
     streams_p.add_argument("activity", type=int)
     streams_p.add_argument("--refresh", action="store_true", help="download again even if stored")
     streams_p.set_defaults(func=cmd_streams)
+    details_p = sub.add_parser("details", help="an activity's records (PRs, KOMs) and who gave kudos (JSON)")
+    details_p.add_argument("activity", type=int)
+    details_p.set_defaults(func=cmd_details)
     charts_p = sub.add_parser("charts", help="open the chart window for an activity")
     charts_p.add_argument("activity", type=int)
     charts_p.add_argument("--refresh", action="store_true", help="download the data again first")

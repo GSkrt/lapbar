@@ -2,7 +2,7 @@
 import math
 from datetime import datetime, timedelta, timezone
 
-from .. import auth, fitness, kudos, sports, streams
+from .. import auth, details, fitness, kudos, sports, streams
 from ..http import HttpError, request_json
 
 ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities"
@@ -238,6 +238,18 @@ def fetch(
         else:
             # One request per new ride; the full series is stored for the charts window too.
             latest["elevation_profile"] = streams.elevation_profile(streams.get(token_source.access_token(), latest))
+
+    if latest and (latest["prs"] or latest["achievements"]):
+        # Which records the newest ride has, by name: one request, stored on disk and reused while the counts hold.
+        prev = (previous or {}).get("latest") or {}
+        if (prev.get("id"), prev.get("prs"), prev.get("achievements")) == (latest["id"], latest["prs"], latest["achievements"]) \
+                and "records" in prev:
+            latest["records"] = prev["records"]
+        else:
+            try:
+                latest["records"] = details.records(token_source.access_token(), latest)
+            except (HttpError, OSError):
+                pass              # not shown this time; tried again on the next refresh
 
     listed = [_listed(a) for a in year]  # newest first
     events, kudos_seen, kudoers = kudos.track(

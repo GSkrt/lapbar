@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from lapbar.http import HttpError
-from lapbar import kudos, streams
+from lapbar import details, kudos, streams
 from lapbar.providers import strava
 
 
@@ -64,6 +64,7 @@ def test_latest_has_social_fields_route_and_profile(monkeypatch):
     monkeypatch.setattr(strava, "request_json", lambda url, token=None, **kw: [ride])
     monkeypatch.setattr(streams, "request_json", lambda url, token=None, **kw: raw)
     monkeypatch.setattr(kudos, "request_json", lambda url, token=None, **kw: [])
+    monkeypatch.setattr(details, "request_json", lambda url, token=None, **kw: {})   # the ride has PRs: their names are asked for
     latest = strava.fetch(FakeTokens(), now=datetime(2026, 9, 19))["latest"]
     assert (latest["kudos"], latest["comments"], latest["prs"], latest["achievements"]) == (7, 2, 3, 5)
     assert len(latest["route"]) == 3

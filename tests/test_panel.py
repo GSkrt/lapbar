@@ -51,9 +51,18 @@ def test_totals_cover_today_week_month_and_year_with_climb():
     assert "t.elevation_m > 0" in PANEL and "cell.info.elevation_m" in PANEL
 
 
-def test_kudos_and_records_do_not_reuse_stravas_own_icons():
-    # Strava's kudos icon is a thumbs up and its PR icon a trophy: use a heart and a medal instead.
-    assert "kudos: 0xF02D1" in PANEL and "pr: 0xF0987" in PANEL
-    for glyph in ("0xF0513", "0xF0538", "0xF0537", "0xF0539"):        # thumb-up, trophy, trophy-award, trophy-variant
-        assert glyph not in PANEL, f"Strava-like icon {glyph} is back"
+def test_icons_follow_stravas_meaning_without_copying_its_thumbs_up():
+    # A medal for a personal record, a cup for a top place on a segment, a heart (not a thumbs up) for kudos.
+    assert "kudos: 0xF02D1" in PANEL and "pr: 0xF0987" in PANEL and "kom: 0xF0538" in PANEL
+    assert "0xF0513" not in PANEL                                     # thumb-up
     assert 'icon("trophy")' not in PANEL
+
+
+def test_records_and_kudos_sit_under_the_ride_description_in_a_foldable_section():
+    header = PANEL.index("// ---------- header ----------")
+    section = PANEL.index("// ---------- records and kudos")
+    route = PANEL.index("// ---------- route trace ----------")
+    assert header < section < route                                   # right under the description, above the route
+    assert "achievementsPref" in PANEL and "achievementRows <= 8" in PANEL    # folded when long, like the calendar
+    assert "fmtEffort(recordRow.modelData.seconds)" in PANEL          # the time each record was achieved in
+    assert '"details", String(root.shown.id)' in PANEL and "root.opened" in PANEL.split("function loadDetails")[1][:200]
