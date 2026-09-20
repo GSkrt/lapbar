@@ -300,6 +300,18 @@ stored per refresh), `ftp` (0 to 600; also in the menu) and `historyYears` (0 to
 
 Kudos are checked on each refresh (default 15 minutes), so an alert can arrive up to that much later.
 
+### Motivational quotes and skipping a day
+
+At the bottom left of the popup, **Motivational quotes** is a radio choice: **Silent** (default), **Motivational** or
+**Drill sergeant**. With one chosen, LapBar sends a desktop popup when your data says a nudge makes sense (three or
+more days off, form falling, a comeback), never on a recovery week or when your form is low, never in quiet hours
+(22:00 to 08:00 by default), and only a few times a day. The motivational voice is mellow; the drill sergeant shouts
+at the chair, never at you. The messages are plain files in `lapbar/messages/`.
+
+Skipping today? Tap **I'm tired**, **Bad weather**, **No time**, **Not feeling well** or **Planned rest day** in the
+popup (or on the notification). The day is ringed on the calendar and the coach stays quiet for it. From the
+terminal: `lapbar excuse tired`, `lapbar prefs --coach-tone drill`, `lapbar coach --test`.
+
 ### Fitness, fatigue and form
 
 At the top of the popup's right column is the plot everything else is meant to be built on: **fitness** (a slow

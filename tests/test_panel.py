@@ -99,3 +99,19 @@ def test_the_menu_opens_the_data_window_and_the_window_has_all_its_parts():
     # no typing of dates or paths: a calendar and the desktop's folder dialog
     assert "DatePicker {" in window and '"pick-folder"' in window and "Choose folder" in window
     assert "TextInput" not in window and "Field {" not in window
+
+
+def test_motivational_quotes_are_a_radio_group_in_the_popup_not_a_menu_item():
+    assert "Motivational quotes" in PANEL
+    for label in ('"Silent"', '"Motivational"', '"Drill sergeant"'):
+        assert label in PANEL
+    assert '["prefs", "--coach-tone", radio.modelData.id]' in PANEL
+    assert 'action: "coach"' not in PANEL and "Nudges" not in PANEL
+    assert "notifyCoach" not in PANEL and "coach_events" not in PANEL     # popups come from the CLI, not the widget
+
+
+def test_excuses_are_chips_in_the_window_and_marked_on_the_calendar():
+    assert 'model: ["tired", "weather", "time", "unwell", "rest"]' in PANEL
+    assert 'root.coachSet(["excuse", chip.modelData])' in PANEL
+    assert 'excuse: root.excuses[key] || ""' in PANEL and "skipped: " in PANEL
+    assert "cell.modelData.excuse" in PANEL

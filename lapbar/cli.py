@@ -4,9 +4,9 @@ import itertools
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
-from . import auth, charts, config, details, export, fitness, helpwin, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
+from . import auth, charts, coach, config, details, excuses, export, fitness, helpwin, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -86,6 +86,12 @@ def cmd_fetch(args) -> int:
             print(json.dumps(payload))
         return 1
     # Events are delivered once, on stdout; keeping them out of the cache means they can never replay.
+    try:                                # nudges: a card for the popup; the popups themselves are shown here, with excuse buttons
+        summary["coach"], events = coach.tick(summary)
+        for event in events:
+            coach.deliver(event)
+    except Exception:  # noqa: BLE001 - a nudge must never break a refresh
+        summary["coach"] = None
     _write_cache({k: v for k, v in summary.items() if k != "kudos_events"})
     try:
         export.spawn_if_enabled()      # continuous DuckDB export, in its own process so the refresh stays quick
@@ -212,6 +218,47 @@ def cmd_manage(args) -> int:
     return 0
 
 
+def cmd_coach(args) -> int:
+    """The coach: what the popup shows (JSON), `--test` to see and send a sample of a tone."""
+    if args.deliver:                                       # started by coach.deliver(): show one popup and record a button press
+        payload = json.loads(args.deliver)
+        coach.show(payload["event"], payload["day"])
+        return 0
+    settings = prefs.load()
+    if args.test:
+        tone = args.tone or (settings["coach_tone"] if settings["coach_tone"] in coach.TONES else "motivational")
+        try:
+            event = coach.sample(tone, args.kind)
+        except (ValueError, KeyError) as e:
+            print(json.dumps({"error": "bad_value", "message": str(e)}))
+            return 1
+        coach.show(event, date.today().isoformat(), timeout_ms=8000)
+        print(json.dumps(event))
+        return 0
+    summary = _read_cache() or {}
+    now = datetime.now()
+    print(json.dumps({"tone": settings["coach_tone"], "card": summary.get("coach"), "paused": coach.paused(settings, now),
+                      "paused_until": settings["coach_pause_until"], "quiet_hours": settings["quiet_hours"],
+                      "random_per_day": settings["coach_random_per_day"], "excuses": excuses.load(),
+                      "excuse_labels": excuses.LABELS}))
+    return 0
+
+
+def cmd_excuse(args) -> int:
+    """Mark a day with an excuse ("I'm tired"), or take it back; prints all excuses (JSON)."""
+    day = args.date or date.today().isoformat()
+    try:
+        if args.key == "clear":
+            marked = excuses.clear(day)
+        else:
+            marked = excuses.toggle(day, args.key)
+    except ValueError as e:
+        print(json.dumps({"error": "bad_value", "message": str(e)}))
+        return 1
+    print(json.dumps({"excuses": marked, "day": day}))
+    return 0
+
+
 def cmd_howto(args) -> int:
     """Open the how-to window (the guide from docs/help.md)."""
     theme = {f"LAPBAR_{k}": v for k, v in (("FG", args.fg), ("BG", args.bg), ("ACCENT", args.accent), ("FONT", args.font)) if v}
@@ -230,6 +277,14 @@ def cmd_prefs(args) -> int:
         changes["export_continuous"] = args.continuous == "on"
     if args.spatial is not None:
         changes["export_spatial"] = args.spatial == "on"
+    if args.coach_tone is not None:
+        changes["coach_tone"] = args.coach_tone
+    if args.coach_random is not None:
+        changes["coach_random_per_day"] = args.coach_random
+    if args.quiet_hours is not None:
+        changes["quiet_hours"] = args.quiet_hours
+    if args.coach_pause is not None:
+        changes["coach_pause_until"] = (date.today() + timedelta(days=args.coach_pause)).isoformat() if args.coach_pause > 0 else None
     try:
         current = prefs.update(**changes) if changes else prefs.load()
     except ValueError as e:
@@ -368,6 +423,16 @@ def main(argv: list[str] | None = None) -> None:
     for flag in ("--fg", "--bg", "--accent", "--font"):
         manage_p.add_argument(flag, default=None)
     manage_p.set_defaults(func=cmd_manage)
+    coach_p = sub.add_parser("coach", help="nudges to get off the chair: show the current one, or --test a tone")
+    coach_p.add_argument("--test", action="store_true", help="send a sample notification now")
+    coach_p.add_argument("--tone", choices=("motivational", "drill"), help="with --test: which tone (default: yours)")
+    coach_p.add_argument("--kind", default="random", choices=("random", "idle", "comeback", "rest", "fresh", "praise"))
+    coach_p.add_argument("--deliver", metavar="JSON", help=argparse.SUPPRESS)
+    coach_p.set_defaults(func=cmd_coach)
+    excuse_p = sub.add_parser("excuse", help="mark a day you skip, with the reason (tired, weather, time, unwell, rest), or clear it")
+    excuse_p.add_argument("key", choices=(*("tired", "weather", "time", "unwell", "rest"), "clear"))
+    excuse_p.add_argument("--date", metavar="YYYY-MM-DD", help="the day (default: today)")
+    excuse_p.set_defaults(func=cmd_excuse)
     howto_p = sub.add_parser("howto", help="open the how-to window: the guide, inside the app")
     for flag in ("--fg", "--bg", "--accent", "--font"):
         howto_p.add_argument(flag, default=None)
@@ -377,6 +442,10 @@ def main(argv: list[str] | None = None) -> None:
     prefs_p.add_argument("--export-path", metavar="FILE", help="where the DuckDB database goes")
     prefs_p.add_argument("--continuous", choices=("on", "off"), help="update the database after every refresh")
     prefs_p.add_argument("--spatial", choices=("on", "off"), help="add real geometry (downloads DuckDB's spatial extension once)")
+    prefs_p.add_argument("--coach-tone", choices=("off", "motivational", "drill"), help="motivational quotes: off (silent), motivational or drill")
+    prefs_p.add_argument("--coach-random", type=int, metavar="N", help="random pushes per day (0 to 12)")
+    prefs_p.add_argument("--coach-pause", type=int, metavar="DAYS", help="no nudges for this many days (illness, holiday, a planned break); 0 ends it")
+    prefs_p.add_argument("--quiet-hours", metavar="22:00-08:00", help="no coach notifications between these times")
     prefs_p.set_defaults(func=cmd_prefs)
     api_p = sub.add_parser("api", help="the Strava API version LapBar targets and every call it makes")
     api_p.add_argument("--json", action="store_true")

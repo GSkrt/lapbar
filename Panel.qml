@@ -192,6 +192,7 @@ Panel {
         key: key,
         info: root.activeDays[key] || null,
         local: root.dayArchived(key),
+        excuse: root.excuses[key] || "",
         isToday: y === root.today.getFullYear() && m === root.today.getMonth() && d === root.today.getDate(),
         isFuture: new Date(y, m, d) > root.today
       })
@@ -375,7 +376,8 @@ Panel {
   function dayTooltip(cell) {
     var date = new Date(root.viewYear, root.viewMonth, cell.day)
     var head = Qt.formatDate(date, "ddd d MMM")
-    if (!cell.info) return head + " · rest day"
+    var skipped = cell.excuse ? " · skipped: " + root.excuseLabel(cell.excuse) : ""
+    if (!cell.info) return head + (skipped !== "" ? skipped : " · rest day")
     var parts = [cell.info.count + (cell.info.count === 1 ? " activity" : " activities")]
     if (cell.info.distance_km > 0) parts.push(cell.info.distance_km.toFixed(1) + " km")
     parts.push(fmtDuration(cell.info.moving_time_s))
@@ -383,7 +385,7 @@ Panel {
     if (cell.local) parts.push("full data stored")
     var names = []
     for (var i = 0; i < cell.info.families.length; i++) names.push(root.familyLabels[cell.info.families[i]] || cell.info.families[i])
-    return head + " · " + names.join(" + ") + " · " + parts.join(" · ")
+    return head + " · " + names.join(" + ") + " · " + parts.join(" · ") + skipped
   }
 
   readonly property string socialText: {
@@ -438,6 +440,71 @@ Panel {
       clearEnvironment: true,
       environment: root.desktopEnvironment
     })
+  }
+
+  // ------------------------------------------------ nudges to get off the chair (`lapbar coach`, see coach.py)
+
+  property var coachInfo: null            // {tone, card, paused, paused_until, ...}: read locally, no request to Strava
+  property string coachDismissed: ""      // the card that was closed with the cross; a new one shows again
+
+  // "Motivational quotes": the radio group in the popup. Popups only come with a tone chosen; Silent is the default.
+  readonly property var coachModes: [
+    { id: "off", label: "Silent" },
+    { id: "motivational", label: "Motivational" },
+    { id: "drill", label: "Drill sergeant" }
+  ]
+  readonly property string coachTone: root.coachInfo ? root.coachInfo.tone : "off"
+
+  // Days you skipped, with the reason ("I'm tired"), marked on the calendar; the coach leaves you alone on them.
+  readonly property var excuses: (root.coachInfo && root.coachInfo.excuses) ? root.coachInfo.excuses : ({})
+  readonly property var excuseLabels: (root.coachInfo && root.coachInfo.excuse_labels) ? root.coachInfo.excuse_labels : ({})
+  readonly property string todayExcuse: root.excuses[Qt.formatDate(new Date(), "yyyy-MM-dd")] || ""
+  function excuseLabel(key) { return root.excuseLabels[key] || key }
+
+  readonly property var coachCard: root.coachInfo ? root.coachInfo.card : (root.summary ? root.summary.coach : null)
+  readonly property bool coachVisible: !!root.coachCard && !!root.coachCard.text && root.coachDismissed !== (root.coachCard.id + root.coachCard.text)
+  readonly property color coachColor: {
+    var tone = root.coachCard ? root.coachCard.tone : "motivational"
+    return tone === "drill" ? "#ff5a3c" : Color.accent
+  }
+
+  function loadCoach() {
+    if (coachInfoProc.running) return
+    coachInfoProc.command = ["/usr/bin/python3", "-I", root.launcher, "coach"]
+    coachInfoProc.running = true
+  }
+
+  function coachSet(args) {
+    if (coachSetProc.running) return
+    coachSetProc.command = ["/usr/bin/python3", "-I", root.launcher].concat(args)
+    coachSetProc.running = true
+  }
+
+  Process {
+    id: coachInfoProc
+    running: false
+    command: []
+    clearEnvironment: true
+    environment: root.fetchEnvironment
+    stdout: StdioCollector { id: coachInfoOut; waitForEnd: true }
+    onExited: { try { root.coachInfo = JSON.parse(coachInfoOut.text) } catch (e) { } }
+  }
+
+  Process {                                             // "try one": shows a sample popup (it waits for it to close)
+    id: coachTryProc
+    running: false
+    command: []
+    clearEnvironment: true
+    environment: root.fetchEnvironment
+  }
+
+  Process {
+    id: coachSetProc
+    running: false
+    command: []
+    clearEnvironment: true
+    environment: root.fetchEnvironment
+    onExited: root.loadCoach()
   }
 
   // The FTP submenu: a stepper, an estimate from ride history (offered, never applied on its own), and Save.
@@ -778,6 +845,7 @@ Panel {
     root.muted = !!parsed.muted
     root.setupWatching = false
     if (parsed.kudos_events && parsed.kudos_events.length > 0) root.notifyKudos(parsed.kudos_events)
+    root.loadCoach()
   }
 
   function openSetup() {
@@ -947,6 +1015,7 @@ Panel {
       root.intervalOpen = false
       root.ftpOpen = false
       root.loadDetails()
+      root.loadCoach()
       if (Date.now() - root.lastUpdatedAt > 120000) root.refresh(true)
     }
   }
@@ -2009,6 +2078,93 @@ Panel {
             onClicked: root.setMuted("toggle")
           }
         }
+
+
+        Column {                                              // "Motivational quotes": Silent, Motivational or Drill sergeant
+          visible: !root.needsSetup
+          width: parent.width
+          spacing: Style.space(4)
+
+          Text {
+            text: "Motivational quotes"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Row {
+            spacing: Style.space(14)
+
+            Repeater {
+              model: root.coachModes
+
+              Item {
+                id: radio
+                required property var modelData
+                readonly property bool on: root.coachTone === modelData.id
+                width: radioDot.width + radioLabel.implicitWidth + Style.space(6)
+                height: Style.space(20)
+
+                Rectangle {
+                  id: radioDot
+                  width: Style.space(14)
+                  height: Style.space(14)
+                  radius: width / 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: "transparent"
+                  border.width: 1
+                  border.color: radio.on ? root.foreground : root.dim
+
+                  Rectangle {
+                    anchors.centerIn: parent
+                    width: Style.space(8)
+                    height: Style.space(8)
+                    radius: width / 2
+                    color: root.foreground
+                    visible: radio.on
+                  }
+                }
+
+                Text {
+                  id: radioLabel
+                  anchors.left: radioDot.right
+                  anchors.leftMargin: Style.space(6)
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: radio.modelData.label
+                  color: radio.on ? root.foreground : root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: radio.on
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.coachSet(["prefs", "--coach-tone", radio.modelData.id])
+                }
+              }
+            }
+          }
+
+          Text {
+            visible: root.coachTone !== "off"
+            text: "Try one  \u2197"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+
+            MouseArea {
+              anchors.fill: parent
+              anchors.margins: -Style.space(4)
+              cursorShape: Qt.PointingHandCursor
+              onClicked: {
+                if (coachTryProc.running) return
+                coachTryProc.command = ["/usr/bin/python3", "-I", root.launcher, "coach", "--test"]
+                coachTryProc.running = true
+              }
+            }
+          }
+        }
         }
 
         // ---- right: how you are doing
@@ -2017,6 +2173,60 @@ Panel {
           visible: root.wide
           width: layout.colWidth
           spacing: Style.spacing.panelGap
+
+          Rectangle {                                            // a nudge, with the data behind it
+            visible: root.coachVisible
+            width: parent.width
+            height: coachBody.implicitHeight + Style.space(16)
+            radius: Style.space(6)
+            color: Qt.rgba(root.coachColor.r, root.coachColor.g, root.coachColor.b, 0.10)
+            border.width: 1
+            border.color: root.coachColor
+
+            Column {
+              id: coachBody
+              x: Style.space(10)
+              y: Style.space(8)
+              width: parent.width - Style.space(34)
+              spacing: Style.space(2)
+
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: root.coachCard ? root.coachCard.text : ""
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.bodySmall
+              }
+
+              Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: root.coachCard ? root.coachCard.reason + "." : ""
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+              }
+            }
+
+            Text {                                               // dismiss until a different nudge comes
+              anchors.right: parent.right
+              anchors.top: parent.top
+              anchors.margins: Style.space(8)
+              text: "\u00d7"
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.body
+
+              MouseArea {
+                anchors.fill: parent
+                anchors.margins: -Style.space(6)
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.coachDismissed = root.coachCard.id + root.coachCard.text
+              }
+            }
+          }
+
 
         // ---------- fitness, fatigue and form: the plot the rest is built on ----------
 
@@ -2432,6 +2642,19 @@ Panel {
                   font.bold: cell.alpha > 0
                 }
 
+                Rectangle {                       // a ring: you marked this day as skipped, with a reason
+                  visible: cell.modelData.day > 0 && !!cell.modelData.excuse
+                  anchors.top: parent.top
+                  anchors.right: parent.right
+                  anchors.margins: Style.space(3)
+                  width: Style.space(7)
+                  height: Style.space(7)
+                  radius: width / 2
+                  color: "transparent"
+                  border.width: 2
+                  border.color: cell.alpha >= 0.6 ? Color.background : "#e6b422"
+                }
+
                 Rectangle {                       // a dot: the full time series (with GPS) of a ride this day is stored here
                   visible: cell.modelData.day > 0 && cell.modelData.local === true
                   anchors.horizontalCenter: parent.horizontalCenter
@@ -2518,6 +2741,57 @@ Panel {
                   anchors.fill: parent
                   cursorShape: Qt.PointingHandCursor
                   onClicked: root.selected = dayRow.modelData
+                }
+              }
+            }
+          }
+        }
+
+        Column {                                              // "skipping today?": the reason is marked on the calendar
+          visible: !!root.summary
+          width: rightCol.width
+          spacing: Style.spacing.sm
+
+          Text {
+            text: root.todayExcuse !== "" ? "Skipping today: " + root.excuseLabel(root.todayExcuse) : "Skipping today?"
+            color: root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Flow {
+            width: parent.width
+            spacing: Style.space(6)
+
+            Repeater {
+              model: ["tired", "weather", "time", "unwell", "rest"]
+
+              Rectangle {
+                id: chip
+                required property string modelData
+                readonly property bool on: root.todayExcuse === modelData
+                width: chipText.implicitWidth + Style.space(16)
+                height: Style.space(24)
+                radius: height / 2
+                color: chip.on ? Qt.rgba(0.90, 0.71, 0.13, 0.28) : (chipMouse.containsMouse ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : "transparent")
+                border.width: 1
+                border.color: chip.on ? "#e6b422" : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.3)
+
+                Text {
+                  id: chipText
+                  anchors.centerIn: parent
+                  text: root.excuseLabel(chip.modelData)
+                  color: chip.on ? root.foreground : root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+
+                MouseArea {
+                  id: chipMouse
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.coachSet(["excuse", chip.modelData])
                 }
               }
             }

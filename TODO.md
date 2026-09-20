@@ -199,13 +199,13 @@ Draft lines (English, to be tuned):
 
 Tasks:
 
-- [ ] Message pack format: `id`, `trigger`, `tone` (gentle / cheeky), `cooldown_days`, `text`; loaded from data
+- [x] Message pack format (lapbar/messages/en.json, motivational and drill tones): `id`, `trigger`, `tone` (gentle / cheeky), `cooldown_days`, `text`; loaded from data
       files, never hard-coded.  S
-- [ ] Triggers and caps: max one nudge per day, none within an hour of an activity, quiet hours, never during
+- [x] Triggers and caps (recovery, pause, quiet hours, excuses; rotation left): max one nudge per day, none within an hour of an activity, quiet hours, never during
       do-not-disturb or pause mode, rotate so the same line does not repeat within N days.  M
-- [ ] Settings: coach on/off, tone (gentle / cheeky / off), quiet hours, "not today", "never show these".  S
+- [x] Settings (radio in the popup: silent / motivational / drill; excuses as chips; left: pause UI, per-rule snooze), quiet hours, "not today", "never show these".  S
 - [ ] Write 30+ lines in English first, review them together for tone, then translate (section 2).  M
-- [ ] UI: the "Coach" card in the popup (today's suggestion, its reason and a line), then the opt-in notification, then
+- [x] UI (popup card + desktop notifications with excuse buttons; left: bar frame): the "Coach" card in the popup (today's suggestion, its reason and a line), then the opt-in notification, then
       a bar frame ("Form: fresh"). See the placement decision in 1.4.  M
 
 ### 1.6 Suggested order for section 1

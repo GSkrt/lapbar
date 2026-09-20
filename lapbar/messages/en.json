@@ -1,0 +1,126 @@
+{
+ "titles": {
+  "motivational": "A gentle nudge",
+  "drill": "ATTENTION"
+ },
+ "idle": {
+  "motivational": [
+   "It has been {days} days. A gentle walk or an easy spin would feel lovely today. Ten minutes counts.",
+   "Your legs would enjoy some fresh air: a stroll, a slow ride or a few stretches.",
+   "Nothing on Strava for {days} days. An easy loop around the block is a lovely way to say hello again.",
+   "A short walk, an easy swim or a slow spin: any of them counts. Pick the one you like.",
+   "Small and mellow is fine: ten easy minutes and you are back in the game.",
+   "Your next kudos is one easy ride away.",
+   "Legs remember even when motivation forgets. Let them show you.",
+   "The hardest part is the door. After that it is just walking.",
+   "Plot twist: you will feel better after. It happens every single time."
+  ],
+  "drill": [
+   "ON YOUR FEET! The couch is not a training plan. Shoes. Door. Move.",
+   "Your chair has been promoted to Employee of the Month. Fire it. UP.",
+   "The 'five more minutes' excuse is DISMISSED. Ten minutes outside instead. GO.",
+   "Drop the mouse. Step away from the keyboard. This is not a drill. (It is a drill.)",
+   "Your excuses are dismissed! Cleats on. Door open. Outside. NOW.",
+   "Do you EVER want to get any kudos again? They do not fall from the ceiling. Get out there.",
+   "Kudos are earned on the road, not on the sofa. MOVE.",
+   "Your followers are waiting for a new activity. Fill that feed. Wheels. NOW."
+  ]
+ },
+ "falling": {
+  "motivational": [
+   "A couple of easy rides or long walks this week would stop the slide. No hard efforts needed.",
+   "A short spin or a stroll a few times this week keeps your fitness from drifting.",
+   "Kudos are earned by activities, and the graph would like one. An easy one is plenty."
+  ],
+  "drill": [
+   "Your fitness is retreating! Hold the line: two easy rides, THIS WEEK.",
+   "Fitness is slipping, recruit. Shoes on. Easy pace. Go.",
+   "Your fitness is retreating and your kudos count is watching. Two easy rides. NOW."
+  ]
+ },
+ "comeback": {
+  "motivational": [
+   "Welcome back whenever you are ready. Start easy, about half of what you used to do, and enjoy it.",
+   "No guilt, no catching up. One easy ride or walk is all it takes to start again.",
+   "The road missed you. It will not mention the gap."
+  ],
+  "drill": [
+   "At ease, soldier. Comeback orders: half the distance, twice the smiles. Move out gently.",
+   "No guilt in this unit. Ride easy, come home happy. Dismissed."
+  ]
+ },
+ "rest": {
+  "motivational": [
+   "Your form says you are very tired. An easy day, a few stretches or a rest day would help."
+  ],
+  "drill": [
+   "REST. That is an order. Legs up, snacks out, dismissed."
+  ]
+ },
+ "fresh": {
+  "motivational": [
+   "You are fresh: a good day for a quality session, or a long relaxed ride if you prefer."
+  ],
+  "drill": [
+   "Form is green. No excuse left standing. Quality session, GO."
+  ]
+ },
+ "praise": {
+  "motivational": [
+   "Your fitness has been rising steadily. Whatever you are doing, keep the routine."
+  ],
+  "drill": [
+   "Fitness is up. Good work, soldier. Keep doing exactly this."
+  ]
+ },
+ "recovery": {
+  "motivational": [
+   "Recovery week: easy is exactly right. Rest well, the fitness stays.",
+   "You trained hard recently, so a quieter stretch is part of the plan."
+  ],
+  "drill": [
+   "STAND DOWN. Recovery is part of the mission. Rest is ordered.",
+   "Hard block completed. Recovery orders: relax, refuel, return stronger."
+  ]
+ },
+ "excused": {
+  "motivational": [
+   "Noted: {excuse}. Rest well, and see you on the road when you feel like it."
+  ],
+  "drill": [
+   "Noted: {excuse}. Excuse ACCEPTED, this once. Rest, then report back."
+  ]
+ },
+ "random": {
+  "motivational": [
+   "Time to stand up, stretch your back and drink some water.",
+   "Look out of the window for twenty seconds. Then take a short walk to it.",
+   "Every ride starts with getting up. Today is a fine day for it.",
+   "A short walk clears the mind. Five minutes, then back to it.",
+   "Roll your shoulders, unclench your jaw, take three deep breaths.",
+   "You have been sitting a while. Your legs would like a word.",
+   "Fresh air is free and always in stock.",
+   "A little movement now makes the evening ride easier.",
+   "Stand up, shake out your hands, walk to the kitchen. That counts.",
+   "Small breaks make big days.",
+   "Your next kudos is one easy ride away.",
+   "Ten minutes counts. Your future self already said thanks.",
+   "Nobody ever gave kudos to a chair."
+  ],
+  "drill": [
+   "STAND UP. Yes, you. Twenty steps. GO.",
+   "Sitting is the enemy! Well, sitting and lukewarm coffee. MOVE!",
+   "Your chair has had its turn. Off it. NOW.",
+   "Attention! Your legs have been on standby. Report for duty.",
+   "The desk has no power over you. Walk away from it. LEFT, RIGHT, LEFT.",
+   "Exit the chair. Locate the door. Proceed outdoors. That is the whole mission.",
+   "Two minutes of movement, RECRUIT. The clock starts now.",
+   "Your spine filed a complaint. Fix it. UP.",
+   "Hydrate! Stretch! Move! This is not a drill. (It is a drill.)",
+   "The keyboard can wait. The road cannot. MARCH.",
+   "Do you ever want to get any kudos? Then stand UP.",
+   "No ride, no kudos. That is not me talking, that is Strava.",
+   "Kudos are not delivered to the couch. Report to the door."
+  ]
+ }
+}

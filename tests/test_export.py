@@ -216,7 +216,8 @@ def test_the_default_path_is_in_the_data_folder_and_a_chosen_path_is_used(data, 
 # ---- preferences
 
 def test_preferences_default_validate_and_are_private():
-    assert prefs.load() == {"history_from": None, "export_path": None, "export_continuous": False, "export_spatial": False}
+    assert prefs.load() == {"history_from": None, "export_path": None, "export_continuous": False, "export_spatial": False,
+                              "coach_tone": "off", "coach_random_per_day": 2, "quiet_hours": "22:00-08:00", "coach_pause_until": None}
     assert prefs.update(history_from="2019-04-01")["history_from"] == "2019-04-01"
     assert prefs.update(history_from=None)["history_from"] is None
     with pytest.raises(ValueError):
@@ -237,7 +238,8 @@ def test_prefs_command_sets_and_clears_values(capsys):
             code = e.code or 0
         return code, json.loads(capsys.readouterr().out)
     assert run("--history-from", "2020-01-01", "--continuous", "on", "--export-path", "~/x.duckdb", "--spatial", "on")[1]["prefs"] == {
-        "history_from": "2020-01-01", "export_path": "~/x.duckdb", "export_continuous": True, "export_spatial": True}
+        "history_from": "2020-01-01", "export_path": "~/x.duckdb", "export_continuous": True, "export_spatial": True,
+        "coach_tone": "off", "coach_random_per_day": 2, "quiet_hours": "22:00-08:00", "coach_pause_until": None}
     assert run("--history-from", "none")[1]["prefs"]["history_from"] is None
     code, out = run("--history-from", "nonsense")
     assert code == 1 and out["error"] == "bad_value"
