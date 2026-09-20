@@ -335,16 +335,6 @@ def test_reset_removes_preferences_too():
     assert "preferences" in setup.forget(out=lambda *_: None) and prefs.load()["export_continuous"] is False
 
 
-def test_the_readme_documents_every_table_and_the_install_command():
-    from pathlib import Path
-    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text()
-    for t in export.SCHEMA:
-        assert f"`{t['table']}`" in readme, t["table"]
-    assert export.INSTALL_COMMANDS[0] in readme and export.INSTALL_COMMANDS[1] in readme
-    for note in export.NOTES:
-        assert note["title"] in readme and note["about"] in readme
-    assert "Fetch history back to" in readme and "Keep it up to date" in readme
-
 
 # ---- real geometry (DuckDB's spatial extension) is downloaded only when asked for
 

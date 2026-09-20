@@ -286,6 +286,8 @@ start with those, since that is where the users are. Tasks:
       basemap, but it is not planned.
 - [ ] **One-click sign-in**: a small Cloudflare Worker that holds the client secret and does the OAuth exchange,
       then apply to Strava's Developer Program. Own-app mode must keep working. Details are in the README's plan.
+- [ ] Before that application: re-read the API Agreement's wording on storing, exporting and reusing athlete data
+      (the raw archive, the data folder and the export features), and decide what to describe in the README.
 - [ ] **Strava Developer Program** application once there is a public release and some use.
 - [ ] Packaging: an AUR package or a one-line installer, if people ask.
 - [ ] Charts: compare two activities, a route overlay, laps and splits, more series when Strava adds them.
