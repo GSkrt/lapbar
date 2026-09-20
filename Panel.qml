@@ -477,11 +477,11 @@ Panel {
   // -------------------------------------------------------------- icons (Nerd Font, Material Design)
 
   // As on Strava's own pages: a medal for a personal record (PR) and a cup for a top place on a segment (KOM/QOM).
-  // Kudos get a heart rather than Strava's thumbs up.
+  // Kudos get a thumbs up, as on Strava.
   readonly property var glyphs: ({
     ride: 0xF00A3, run: 0xF070E, walk: 0xF0583, swim: 0xF04E3, paddle: 0xF08AF, winter: 0xF0717,
     skate: 0xF0D35, gym: 0xF01E6, other: 0xF140B,
-    kudos: 0xF02D1, pr: 0xF0987, kom: 0xF0538, up: 0xF005D, down: 0xF0045, even: 0xF01FC, week: 0xF00ED,
+    kudos: 0xF0513, pr: 0xF0987, kom: 0xF0538, up: 0xF005D, down: 0xF0045, even: 0xF01FC, week: 0xF00ED,
     bell: 0xF009A, bellOff: 0xF009B
   })
 

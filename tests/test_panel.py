@@ -51,10 +51,9 @@ def test_totals_cover_today_week_month_and_year_with_climb():
     assert "t.elevation_m > 0" in PANEL and "cell.info.elevation_m" in PANEL
 
 
-def test_icons_follow_stravas_meaning_without_copying_its_thumbs_up():
-    # A medal for a personal record, a cup for a top place on a segment, a heart (not a thumbs up) for kudos.
-    assert "kudos: 0xF02D1" in PANEL and "pr: 0xF0987" in PANEL and "kom: 0xF0538" in PANEL
-    assert "0xF0513" not in PANEL                                     # thumb-up
+def test_icons_follow_stravas_meaning():
+    # A medal for a personal record, a cup for a top place on a segment, a thumbs up for kudos.
+    assert "kudos: 0xF0513" in PANEL and "pr: 0xF0987" in PANEL and "kom: 0xF0538" in PANEL
     assert 'icon("trophy")' not in PANEL
 
 
