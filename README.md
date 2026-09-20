@@ -292,9 +292,10 @@ FROM activities WHERE family = 'ride' GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
 Best 20-minute power of each ride:
 
 ```sql
+-- RANGE, not ROWS: t skips seconds while a ride is paused
 SELECT activity_id, round(max(w)) AS best_20min_w FROM (
   SELECT activity_id, avg(watts) OVER (PARTITION BY activity_id ORDER BY t
-         ROWS BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w
+         RANGE BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w
   FROM samples WHERE watts IS NOT NULL) GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 ```
 
@@ -308,9 +309,10 @@ FROM activities WHERE family = 'ride' GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
 Best 20-minute power of each ride:
 
 ```sql
+-- RANGE, not ROWS: t skips seconds while a ride is paused
 SELECT activity_id, round(max(w)) AS best_20min_w FROM (
   SELECT activity_id, avg(watts) OVER (PARTITION BY activity_id ORDER BY t
-         ROWS BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w
+         RANGE BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w
   FROM samples WHERE watts IS NOT NULL) GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 ```
 

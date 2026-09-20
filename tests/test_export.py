@@ -433,3 +433,32 @@ def test_the_documented_length_example_gives_about_the_right_distance(data, tmp_
         con.close()
     assert metres == pytest.approx(truth, rel=0.02)
     assert unflipped != pytest.approx(truth, rel=0.1)                    # the trap the example avoids
+
+
+def test_the_power_example_uses_time_not_row_counts_because_paused_rides_have_gaps():
+    sql = dict(export.EXAMPLES)["Best 20-minute power of each ride"]
+    assert "RANGE BETWEEN 1199 PRECEDING" in sql and "ROWS BETWEEN" not in sql.split("\n", 1)[1]
+
+
+@needs_duckdb
+def test_the_power_example_runs_and_a_pause_does_not_stretch_the_window(data, tmp_path):
+    path = tmp_path / "db" / "pw.duckdb"
+    paused = streams_with_gps(1000)
+    paused["time"]["data"] = [i if i < 500 else i + 3000 for i in range(1000)]     # 50 minutes stopped in the middle
+    paused["watts"]["data"] = [100] * 500 + [300] * 500
+    raw.store(act(1, "2025-05-01T07:00:00Z"), paused)
+    export.sync(path)
+    sql = dict(export.EXAMPLES)["Best 20-minute power of each ride"]
+    best = dict(rows(path, sql.split("\n", 1)[1].replace("LIMIT 10", "")))
+    assert best[1] == 300          # the 20-minute window after the pause is all 300 W, and never mixes in the pre-pause 100 W
+    assert min(rows(path, "SELECT t FROM samples WHERE activity_id = 1 ORDER BY t"))[0] == 0
+
+
+@needs_duckdb
+def test_samples_are_loaded_in_activity_id_order_so_blocks_stay_clustered(data, tmp_path):
+    raw.store(act(0, "2026-12-31T07:00:00Z", name="newest but lowest id"), streams_with_gps(30))
+    history.save_year(2025, [act(2, "2025-06-01T07:00:00Z"), act(1, "2025-05-01T07:00:00Z"), act(0, "2026-12-31T07:00:00Z")], {}, "x")
+    path = tmp_path / "db" / "order.duckdb"
+    export.sync(path)
+    ids = [r[0] for r in rows(path, "SELECT activity_id FROM samples ORDER BY rowid")]
+    assert ids == sorted(ids)

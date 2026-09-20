@@ -154,9 +154,10 @@ RELATIONSHIPS = [
 EXAMPLES = [
     ("Kilometres per week", "SELECT date_trunc('week', start_local) AS week, round(sum(distance_km)) AS km\n"
                             "FROM activities WHERE family = 'ride' GROUP BY 1 ORDER BY 1 DESC LIMIT 12;"),
-    ("Best 20-minute power of each ride", "SELECT activity_id, round(max(w)) AS best_20min_w FROM (\n"
+    ("Best 20-minute power of each ride", "-- RANGE, not ROWS: t skips seconds while a ride is paused\n"
+                                          "SELECT activity_id, round(max(w)) AS best_20min_w FROM (\n"
                                           "  SELECT activity_id, avg(watts) OVER (PARTITION BY activity_id ORDER BY t\n"
-                                          "         ROWS BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w\n"
+                                          "         RANGE BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w\n"
                                           "  FROM samples WHERE watts IS NOT NULL) GROUP BY 1 ORDER BY 2 DESC LIMIT 10;"),
     ("Rides that overlap the most", "SELECT x.name, y.name, count(*) AS shared_cells\n"
                                     "FROM route_cells a JOIN route_cells b USING (cell_x, cell_y)\n"
@@ -490,8 +491,9 @@ def _sync(con, path: Path, rebuild: bool, started: str, progress, install_spatia
 
     have = {row[0] for row in con.execute("SELECT DISTINCT activity_id FROM samples").fetchall()}
     by_id = {a["id"]: a for a in activities}
-    todo = sorted((i for i in raw.archived_ids() if i not in have and i in by_id),
-                  key=lambda i: str(by_id[i].get("start") or ""), reverse=True)
+    # In id order, so `samples` stays clustered by activity (ids grow with time): DuckDB's per-block min/max
+    # statistics then skip whole blocks for "one activity" and "one year" queries, up to twice as fast.
+    todo = sorted(i for i in raw.archived_ids() if i not in have and i in by_id)
     total = len(todo)
     _write_state(running=True, pid=os.getpid(), started=started, done=0, total=total, path=str(path))
     added_rows = 0
