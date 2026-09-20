@@ -22,9 +22,9 @@ from pathlib import Path
 
 from . import config, details, history, prefs, raw
 
-INSTALL_COMMANDS = ["omarchy pkg add python-duckdb", "sudo pacman -S python-duckdb"]
+INSTALL_COMMANDS = ["omarchy pkg add python-duckdb"]
 INSTALL_HINT = ("DuckDB is not installed. Install its Python package, then try again:\n"
-                "    " + INSTALL_COMMANDS[0] + "\n  or\n    " + INSTALL_COMMANDS[1] + "\n"
+                "    " + INSTALL_COMMANDS[0] + "\n"
                 "(add the `duckdb` package as well if you want the `duckdb` command line to query the file.)")
 
 

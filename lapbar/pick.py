@@ -9,7 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-INSTALL_HINT = "No folder chooser found. Install one: sudo pacman -S zenity (or kdialog, or yad)."
+INSTALL_HINT = "No folder chooser found. Install one: omarchy pkg add zenity (or kdialog, or yad)."
 
 
 class NoChooser(RuntimeError):

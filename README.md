@@ -49,14 +49,18 @@ It is written in lowercase (`lapbar`) for the command, the plugin id and file pa
 About five minutes, most of it creating your Strava app.
 
 **You need:** a Strava account **with an active subscription** (see [the subscription question](#do-i-need-a-paid-strava-subscription)),
-Omarchy, and Python 3.11+ (already on Omarchy). No pip packages are required.
+Omarchy, and Python 3.11+ (already on Omarchy).
+
+**Dependencies:** none to install. LapBar uses only Python's standard library and programs Omarchy already has
+(`quickshell`, `notify-send`, `hyprctl`, and `secret-tool` for the keyring). No root rights are needed, nothing
+is added to the system, and no other package is downloaded. It contacts only Strava.
 
 ### 1. Install the plugin
 
-    omarchy plugin add <repository-url> --enable
+    omarchy plugin add https://github.com/GSkrt/lapbar.git --enable
 
-(The repository address will be added here when LapBar is published.) The bar now shows a
-**LapBar: set up** button.
+The bar now shows a **LapBar: set up** button. There is no installer script and nothing to build; the plugin
+is the repository itself.
 
 ### 2. Run the guided setup
 
@@ -162,8 +166,17 @@ Secrets are never written to the cache, to logs, or to the terminal. Older plain
 versions are moved into the keyring automatically and then deleted. Set `LAPBAR_NO_KEYRING=1` to use the
 private file instead of the keyring.
 
-To remove everything again (credentials, sign-in, cache and downloaded charts): `lapbar reset` (add `--yes` to skip the question), then
-`omarchy plugin remove io.github.gskrt.lapbar`. You can also delete the app on Strava's API settings page.
+## Removing LapBar
+
+1. `lapbar reset` removes your credentials, sign-in, cache and downloaded charts (add `--yes` to skip the question;
+   add `--all` to also delete the complete activity archive in `~/.local/share/lapbar`).
+2. `omarchy plugin remove io.github.gskrt.lapbar` removes the plugin itself.
+3. Optionally, delete the app on [Strava's API settings page](https://www.strava.com/settings/api) and revoke
+   its access under *Settings → My Apps*.
+
+LapBar never changes anything outside its own folders (`~/.config/lapbar`, `~/.cache/lapbar`,
+`~/.local/share/lapbar`, `~/.local/state/lapbar`) except the widget's own settings in the Omarchy bar
+configuration, and only when you change one from its menu.
 
 ## Troubleshooting
 

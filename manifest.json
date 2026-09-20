@@ -5,7 +5,8 @@
   "version": "0.1.0",
   "author": "Gregor Skrt",
   "license": "GPL-3.0-or-later",
-  "description": "Shows your latest Strava activity in the bar: a route trace, sport-aware stats (pace for runners and swimmers, speed and power for riders), kudos and PRs, plus weekly and yearly totals per sport.",
+  "homepage": "https://github.com/GSkrt/lapbar",
+  "description": "Your Strava in the Omarchy bar: the latest activity with route, stats, kudos and records by name, totals per sport for the day, week, month and year, a calendar back through every year you have, and fitness, fatigue and form worked out on your own computer. Credentials stay in your keyring; nothing is sent anywhere but to Strava.",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +15,7 @@
   },
   "barWidget": {
     "displayName": "LapBar",
-    "description": "Latest Strava activity with route trace and weekly/yearly totals.",
+    "description": "Latest Strava activity, kudos and records, totals, calendar, fitness and form. Charts for every ride.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right",
