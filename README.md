@@ -557,14 +557,3 @@ pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to set up, what a g
 the sign-off (`git commit -s`) that goes with contributions. Security-relevant reports go through
 [SECURITY.md](SECURITY.md). Sports other than cycling are first-class here: if a number or panel looks wrong
 for running, swimming or anything else, that is a bug worth reporting.
-
-## Status
-
-Done: guided setup with keyring storage; the Strava provider for all sports; the bar widget (bar button and tooltip,
-popup with stats, records and kudos by name, calendar with all your history, totals, load versus last week, fitness
-and form, FTP with an estimate from your rides); a chart window for every activity; a local archive of the complete
-time series (GPS included) filled in the background within Strava's request allowance; the data window (history
-stored, date limit, fetching by day); a test suite.
-
-Next: a week of testing as a user, then publish the repository and apply to Strava's Developer Program for
-one-click sign-in. See `TODO.md`.
