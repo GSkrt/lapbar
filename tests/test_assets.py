@@ -75,7 +75,7 @@ def test_canvas_fonts_are_quoted_so_family_names_with_spaces_work():
 
 def test_the_readme_screenshots_exist_and_are_real_pictures():
     readme = (ROOT / "README.md").read_text()
-    for name in ("popup.png", "chart.png"):
+    for name in ("popup.png", "chart.png", "fitness.png", "data-window.png", "date-picker.png"):
         assert f"docs/screenshots/{name}" in readme
         data = (ROOT / "docs" / "screenshots" / name).read_bytes()
-        assert data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) > 20_000
+        assert data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) > 15_000

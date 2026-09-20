@@ -232,6 +232,37 @@ average of your training, about six weeks), **fatigue** (a fast average, about a
 fatigue as it stood yesterday: above zero you are fresh, below zero you are tired). Hover any day to read it, or
 click **Open chart** for the full-size version with the daily load underneath. The bar cycles a "Form +8" frame too.
 
+<p align="center">
+  <img src="docs/screenshots/fitness.png" alt="The fitness, fatigue and form chart: fitness and fatigue lines, form bars and daily load, with the values for the day under the cursor on the right" width="760">
+</p>
+
+**Using the chart.** Click **Open chart ↗** above the plot in the popup (or run `lapbar fitness`). It opens from the
+activities already fetched, so it costs no request to Strava.
+
+- **Top:** fitness (blue, slow) and fatigue (orange, fast) on one axis. Every hard day makes fatigue jump and it drops
+  back within about a week, while fitness climbs slowly with regular riding and falls slowly when you stop.
+- **Middle:** form as bars: green above zero means fresh, orange below zero means tired.
+- **Bottom:** the load of each day, one bar per day.
+- **Right:** the values for the day under the cursor, and the minimum, average and maximum of what is on screen. Click
+  a name to hide that measure.
+- **Reading a day:** the vertical line is the day being read, starting on today. Move the mouse or press ← and →
+  (Shift for bigger steps). Scroll or press + and − to zoom, drag to pan, double-click or press R to reset, **T** for a
+  table of every day, **Esc** to close (the same controls as the ride chart, see "Charts window").
+
+What today's **form** number means, as the popup words it:
+
+| Form | The popup says |
+|---|---|
+| 20 or more | Very fresh: rested and ready for a hard effort |
+| 5 to 20 | Fresh: a good time for a quality session |
+| -10 to 5 | Balanced: neither rested nor worn down |
+| -30 to -10 | Building: a little tired, which is normal in a training block |
+| below -30 | Very tired: an easy day or a rest day would help |
+
+(Until your fitness passes 10 it says "Just getting started" instead, because a few weeks of activity are needed before
+the numbers mean much.) These are guides, not rules: form is a picture of your recent load and says nothing about
+how you feel, sleep, illness or injury.
+
 Strava's API has **no** fitness or freshness data (I checked its public spec), so LapBar works it out itself with the
 standard impulse-response model, from activities it has already fetched. Each activity needs one number, its
 *load*, taken from the best data available:
@@ -270,19 +301,38 @@ afterwards. The estimate is never applied on its own, only when you click.
 
 ### The data window
 
-**⋮ → Manage data…** (or `lapbar manage`) opens a window that shows what LapBar has stored and how fetching is going:
+<p align="center">
+  <img src="docs/screenshots/data-window.png" alt="The data window: history stored so far with a progress bar, the date limit, and fetching day by day" width="380">
+  &nbsp;
+  <img src="docs/screenshots/date-picker.png" alt="The calendar that opens under Choose a date" width="380">
+</p>
 
-- **History.** How many activities you have on Strava, how many have their full data stored here (a bar, and the
-  size on disk with an estimate for when it is complete), and a **date limit**: *Fetch history back to* a day of
-  your choice, chosen on a small calendar, so LapBar never goes further into the past. Older activities are then
-  not downloaded and are hidden from the calendar; what is already stored stays on disk. The limit is saved in
-  `~/.config/lapbar/prefs.json`.
-- **Fetching, day by day.** For each of the last 14 days (UTC, the day Strava's allowance resets on): how many
-  activities were stored, and the most requests Strava reported. Today's line shows how much of the daily
-  allowance is used.
+Open it from **⋮ → Manage data…** in the popup (or run `lapbar manage`); **Esc** closes it. It shows what LapBar has
+stored and how fetching is going, and updates itself every couple of seconds while it is open.
 
-`lapbar manage --status` prints what the window shows, as JSON, and `lapbar prefs --history-from YYYY-MM-DD|none`
-sets the limit from a terminal.
+**History.**
+- The top line is how many activities you have on Strava and the dates they cover.
+- The bar shows how many of them have their *full data* (every second, GPS included) stored on this computer, with the
+  size on disk and an estimate of the total when it is complete. LapBar downloads them in the background, a few per
+  refresh, so the bar fills over days.
+- "Earlier years listed" is how many previous years' activity lists have been downloaded for the calendar.
+
+**Limiting how far back it goes** (optional; by default LapBar fetches everything Strava has):
+1. Click **Choose a date…**. A calendar opens under the button.
+2. Use « and » to move by a year and ‹ and › by a month. Days before your first activity and after today are
+   greyed out.
+3. Click a day. It is saved at once and the button reads *From 2019-04-15*.
+
+From then on, activities before that day are not downloaded and are hidden from the popup's calendar; what is
+already stored stays on disk. **No limit** removes it. From a terminal:
+`lapbar prefs --history-from 2019-04-15` (or `none`); it is saved in `~/.config/lapbar/prefs.json`.
+
+**Fetching, day by day.** One row for each of the last 14 days (UTC, the day Strava's allowance resets on): the bar and
+"stored" are the activities whose full data was downloaded that day, and "req" is the most requests Strava reported that
+day (everything the widget asked, not only those downloads). The text above the rows says how much of today's 1,000
+requests is used. Background downloads slow down as the day fills up and stop at 40%, so refreshing and opening charts
+always have room. To download faster while you are not using Strava's allowance for anything else, run
+`lapbar archive --limit 100`. `lapbar manage --status` prints everything the window shows, as JSON.
 
 ### Refresh interval and Strava's request allowance
 
