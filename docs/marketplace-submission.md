@@ -6,7 +6,7 @@ repository's `SUBMISSION.md`, `VERIFICATION.md` and `SECURITY.md`. Update this f
 
 ## Before submitting
 
-- [ ] The repository is **public** (`https://github.com/GSkrt/lapbar`). It is private until the owner flips it.
+- [x] The repository is **public** (`https://github.com/GSkrt/lapbar`), since 2026-09-20.
 - [x] `manifest.json` in the root: unique id `io.github.gskrt.lapbar`, description, homepage, license.
 - [x] Root `README.md` with installation ("Getting started") and removal ("Removing LapBar").
 - [x] Root `LICENSE` (GPL-3.0-or-later) and the dependencies stated in the README (none to install).

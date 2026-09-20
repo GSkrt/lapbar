@@ -268,7 +268,7 @@ start with those, since that is where the users are. Tasks:
       earlier names, so re-check those for `lapbar`. Also decide on a domain.
 - [ ] **Rename my own Strava app** to LapBar at strava.com/settings/api: the authorization page shows its name.
 
-- [ ] Put the real install URL in the README (currently `<repository-url>`).
+- [x] Put the real install URL in the README.
 - [x] Screenshots in the README (2026-09-20): the popup and the chart window for one ride, in `docs/screenshots/`.
       The kudos names of other people are blurred; the route outline and segment names were left in on purpose (the
       author decided they show nothing sensitive). Still to do: a short screen recording of the workflow, and a
@@ -276,8 +276,8 @@ start with those, since that is where the users are. Tasks:
 - [ ] Delete the old plaintext `.env` in the project folder (git-ignored, unused).
 - [ ] Re-read README, CONTRIBUTING and the About card as a stranger.
 - [ ] Tag `v0.1.0` and write short release notes.
-- [ ] Enable GitHub private vulnerability reporting (SECURITY.md points to it) and check the issue templates render.
-- [ ] Then flip the repository to public.
+- [x] Enable GitHub private vulnerability reporting (SECURITY.md points to it) and check the issue templates render.
+- [x] Then flip the repository to public (2026-09-20).
 
 ## 4. Bigger ideas, in no particular order
 
