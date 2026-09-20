@@ -75,7 +75,17 @@ def test_canvas_fonts_are_quoted_so_family_names_with_spaces_work():
 
 def test_the_readme_screenshots_exist_and_are_real_pictures():
     readme = (ROOT / "README.md").read_text()
-    for name in ("popup.png", "chart.png", "fitness.png", "data-window.png", "date-picker.png"):
+    for name in ("popup.png", "popup-guide.png", "chart.png", "fitness.png", "data-window.png", "date-picker.png"):
         assert f"docs/screenshots/{name}" in readme
         data = (ROOT / "docs" / "screenshots" / name).read_bytes()
         assert data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) > 15_000
+
+
+def test_the_readme_explains_that_the_bar_button_shows_kudos_and_prs_and_its_mouse_actions():
+    readme = (ROOT / "README.md").read_text()
+    assert "**Kudos and PRs**" in readme and "how many kudos and personal records" in readme
+    assert "middle-click refreshes now" in readme and "right-click mutes" in readme
+    panel = (ROOT / "Panel.qml").read_text()
+    assert 'b === Qt.MiddleButton) root.refresh(true)' in panel and 'b === Qt.RightButton) root.setMuted("toggle")' in panel
+    for menu_entry in ("Manage data", "Update credentials or sign in", "Open Strava API settings", "About LapBar", "Reset account"):
+        assert menu_entry in readme and menu_entry in panel

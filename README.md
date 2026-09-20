@@ -187,10 +187,81 @@ up to date, and the own-app mode described above will keep working either way.
 
 ## What the widget does
 
-- **Bar button** cycles (every 6 s, `cycleIntervalSec`; 0 turns cycling off) through: the latest activity with
-  a sport icon, this week's total, kudos and PRs of the latest activity (only when there are any), and your
-  training load compared with last week. Hover shows when Strava was last polled, the latest activity's name,
-  kudos and PRs, and the load comparison.
+### The bar button
+
+The button in your Omarchy bar shows one short line and changes every 6 seconds (`cycleIntervalSec`; `0` keeps it
+still). It cycles through these frames, and skips any that have nothing to show:
+
+| Frame | Looks like | What it tells you |
+|---|---|---|
+| Latest activity | sport icon, `39.9 km` | your latest activity's distance (its time, for sports without distance) |
+| This week | calendar icon, `76.5 km` | this week's total so far |
+| **Kudos and PRs** | thumbs-up `2`, medal `2` | **how many kudos and personal records your latest activity has**. Only shown when there are any. It updates on every refresh, and new kudos also raise a notification naming who gave them. |
+| Load vs last week | up arrow, `1h 55m` | ahead of (up), behind (down) or on par with last week at this point |
+| Form | up arrow, `Form +5` | your form today (up: fresh, down: tired) |
+
+**Hover** for the details: when Strava was last read, the activity's name, `2 kudos · 2 PRs`, the load comparison, your
+form, how many of today's Strava requests are used, and whether kudos alerts are muted or the last refresh failed.
+
+**Mouse:** left-click opens and closes the popup, **middle-click refreshes now**, **right-click mutes or unmutes** kudos
+alerts.
+
+### The popup, and where to find things
+
+<p align="center">
+  <img src="docs/screenshots/popup-guide.png" alt="The popup with numbered markers on each part; the numbers are explained in the list below" width="560">
+</p>
+
+1. **The ride.** Its name, sport and date. The popup shows your latest ride; after you pick another day in the calendar
+   (14), a *Back to latest activity* link appears here.
+2. **⋮ Menu.** Refresh now, mute kudos alerts, refresh interval, FTP, Manage data, credentials, Strava API
+   settings, About, Reset account (see the table below).
+3. **⟳ Refresh now.** Opening the popup also refreshes if the data is more than two minutes old.
+4. **Records and kudos.** The medals (your PRs) and cups (top-10 places) of the ride, with the segment name and the time;
+   below them the thumbs-up with **how many kudos** it got and who gave them. Click the header to fold it; *Show all*
+   lists everything.
+5. **The route.** The ride's outline, with the start marked.
+6. **View on Strava** opens the activity's page on Strava in your browser.
+7. **Open charts ↗** opens the chart window for this ride: elevation, speed, heart rate, power, cadence, temperature
+   and grade (see "Charts window").
+8. **The ride's numbers.** Distance, time, climb, speed (or pace), power, heart rate and cadence: only what exists for
+   the sport. Just below, `2 kudos · 2 PRs` is the same count the bar button shows.
+9. **Storage and requests.** How many of your activities have their full data stored on this computer, and how many of
+   Strava's 1,000 daily requests are used today. The *Powered by Strava* logo is required by Strava.
+10. **Kudos alerts.** On or muted; click to switch.
+11. **Fitness, fatigue and form:** three numbers, your FTP if set, a plain-words status and the plot. Hover any day.
+12. **Open chart ↗** opens the full-size fitness chart (see "Fitness, fatigue and form").
+13. **Training load versus last week.** A bar showing how this week so far compares with last week up to the same moment.
+14. **Calendar.** Days are shaded by how long you were active, and a dot marks days whose full data is stored.
+    Click a day to show that ride in the popup. « » move by a year, ‹ › by a month; the triangle folds it.
+15. **Totals** for today, this week, this month and this year, per sport, with the total climb.
+
+**I want to...**
+
+| I want to | Where |
+|---|---|
+| see how many **kudos and PRs** my latest ride got | the bar button's thumbs-up and medal frame (or its tooltip); in the popup, 4 and 8 |
+| see who gave kudos, and which records I set | Records and kudos (4) |
+| be told about new kudos | automatic; mute with 10, a right-click on the bar button or **⋮ → Mute kudos alerts**; Omarchy's do-not-disturb silences them too |
+| refresh now | ⟳ (3), **⋮ → Refresh now**, or a middle-click on the bar button |
+| change how often it refreshes | **⋮ → Refresh every…** (1 minute to 1 hour; default 15 minutes) |
+| look at an older ride | the calendar (14); *Back to latest activity* (1) returns |
+| open a ride's charts, or the ride on Strava | *Open charts* (7), *View on Strava* (6) |
+| see my fitness, fatigue and form | the block at the top of the right column (11), *Open chart* (12) |
+| set or estimate my FTP | **⋮ → FTP…** |
+| see how much history is stored, or limit how far back it goes | **⋮ → Manage data…** (see "The data window") |
+| sign in again, or change the Client ID and Secret | **⋮ → Update credentials or sign in…** |
+| open my Strava API application's settings | **⋮ → Open Strava API settings** |
+| the credits and the project's page | **⋮ → About LapBar** |
+| remove my credentials, sign-in and cache | **⋮ → Reset account…** (asks first; your downloaded activities stay unless you run `lapbar reset --all`) |
+
+**Widget settings** (Omarchy's bar settings for this widget, or `omarchy bar set io.github.gskrt.lapbar <key> <value>
+--json`): `refreshIntervalSec` (60 to 3600, default 900; also in the menu), `cycleIntervalSec` (0 to 60, default 6),
+`loadMetric` (`time`, `distance` or `effort`), `downloadHistory` (0 to 30, default 12: how many older activities are
+stored per refresh), `ftp` (0 to 600; also in the menu) and `historyYears` (0 to 99, default 99).
+
+### More about what it does
+
 - **Calendar history.** The calendar pages back to your first Strava activity, with « » to jump a year. Earlier
   years are downloaded once (one request per 200 activities of that year; a couple of years per refresh, so the
   first sync never touches the request allowance) and stored under `~/.local/share/lapbar/history/`. The
