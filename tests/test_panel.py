@@ -49,3 +49,11 @@ def test_totals_cover_today_week_month_and_year_with_climb():
     for key in ("summary.today", "summary.week", "summary.month", "summary.year"):
         assert key in PANEL
     assert "t.elevation_m > 0" in PANEL and "cell.info.elevation_m" in PANEL
+
+
+def test_kudos_and_records_do_not_reuse_stravas_own_icons():
+    # Strava's kudos icon is a thumbs up and its PR icon a trophy: use a heart and a medal instead.
+    assert "kudos: 0xF02D1" in PANEL and "pr: 0xF0987" in PANEL
+    for glyph in ("0xF0513", "0xF0538", "0xF0537", "0xF0539"):        # thumb-up, trophy, trophy-award, trophy-variant
+        assert glyph not in PANEL, f"Strava-like icon {glyph} is back"
+    assert 'icon("trophy")' not in PANEL

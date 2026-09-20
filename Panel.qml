@@ -392,10 +392,12 @@ Panel {
 
   // -------------------------------------------------------------- icons (Nerd Font, Material Design)
 
+  // Kudos and records use a heart and a medal on purpose: Strava's own kudos (thumbs up) and PR (trophy) icons are
+  // theirs, and LapBar should not look like it is copying them.
   readonly property var glyphs: ({
     ride: 0xF00A3, run: 0xF070E, walk: 0xF0583, swim: 0xF04E3, paddle: 0xF08AF, winter: 0xF0717,
     skate: 0xF0D35, gym: 0xF01E6, other: 0xF140B,
-    trophy: 0xF0538, pr: 0xF04CE, up: 0xF005D, down: 0xF0045, even: 0xF01FC, week: 0xF00ED,
+    kudos: 0xF02D1, pr: 0xF0987, up: 0xF005D, down: 0xF0045, even: 0xF01FC, week: 0xF00ED,
     bell: 0xF009A, bellOff: 0xF009B
   })
 
@@ -469,7 +471,7 @@ Panel {
     var wk = root.summary ? root.summary.week : null
     if (wk && wk.count > 0) out.push(root.icon("week") + "  " + (wk.distance_km > 0 ? fmtDistance(wk.distance_km, "") : fmtDuration(wk.moving_time_s)))
     if (l && (l.kudos > 0 || l.prs > 0))
-      out.push(root.icon("trophy") + " " + l.kudos + (l.prs > 0 ? "  " + root.icon("pr") + " " + l.prs : ""))
+      out.push(root.icon("kudos") + " " + l.kudos + (l.prs > 0 ? "  " + root.icon("pr") + " " + l.prs : ""))
     var li = root.loadInfo
     if (li && li.state !== "idle")
       out.push(root.icon(li.state === "ahead" ? "up" : (li.state === "behind" ? "down" : "even")) + "  "
@@ -547,7 +549,7 @@ Panel {
     var names = ev.from || []
     var who = names.length ? names.slice(0, 4).join(", ") + (names.length > 4 ? " and " + (names.length - 4) + " more" : "") : ""
     return {
-      title: root.icon("trophy") + "  " + ev.count + (ev.count === 1 ? " new kudo" : " new kudos"),
+      title: root.icon("kudos") + "  " + ev.count + (ev.count === 1 ? " new kudo" : " new kudos"),
       body: (who ? who + " on " : "On ") + "\u201c" + ev.name + "\u201d \u00b7 " + ev.total + " total"
     }
   }
