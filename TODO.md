@@ -266,7 +266,6 @@ start with those, since that is where the users are. Tasks:
 - [ ] Do a proper **trademark search** (EUIPO / USPTO) for LapBar. I only checked exact repository names on GitHub
       (none other than ours: `lapbar` has 0 repositories), and package names on PyPI, AUR and npm were free for the
       earlier names, so re-check those for `lapbar`. Also decide on a domain.
-- [ ] **Rename my own Strava app** to LapBar at strava.com/settings/api: the authorization page shows its name.
 
 - [x] Put the real install URL in the README.
 - [x] Screenshots in the README (2026-09-20): the popup and the chart window for one ride, in `docs/screenshots/`.
@@ -278,6 +277,11 @@ start with those, since that is where the users are. Tasks:
 - [ ] Tag `v0.1.0` and write short release notes.
 - [x] Enable GitHub private vulnerability reporting (SECURITY.md points to it) and check the issue templates render.
 - [x] Then flip the repository to public (2026-09-20).
+- [ ] **A short screen recording of the whole workflow**, the setup included: creating the Strava app, the approval
+      page, the first sync, the popup and the charts. Before recording, rename my own Strava app to LapBar at
+      strava.com/settings/api (no "Strava" in the name, per their brand rules), because the approval page shows the
+      app's name. Blur or crop anything with other people's names. Link it from the README and, if it helps, the
+      marketplace notes.
 
 ## 4. Bigger ideas, in no particular order
 
