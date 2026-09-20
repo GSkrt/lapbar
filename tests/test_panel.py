@@ -63,5 +63,6 @@ def test_records_and_kudos_sit_under_the_ride_description_in_a_foldable_section(
     route = PANEL.index("// ---------- route trace ----------")
     assert header < section < route                                   # right under the description, above the route
     assert "achievementsPref" in PANEL and "achievementRows <= 8" in PANEL    # folded when long, like the calendar
+    assert "KudosBadge {" in PANEL and (Path(__file__).resolve().parent.parent / "KudosBadge.qml").is_file()   # the big thumbs up
     assert "fmtEffort(recordRow.modelData.seconds)" in PANEL          # the time each record was achieved in
     assert '"details", String(root.shown.id)' in PANEL and "root.opened" in PANEL.split("function loadDetails")[1][:200]

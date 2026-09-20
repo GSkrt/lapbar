@@ -1556,19 +1556,25 @@ Panel {
             }
           }
 
-          // who gave kudos, as Strava names them (first name and last initial)
+          // the kudos, with a large thumbs up
+          KudosBadge {
+            visible: root.achievementsOpen && !!root.shown && root.shown.kudos > 0
+            count: root.shown ? root.shown.kudos : 0
+            glyph: root.icon("kudos")
+            foreground: root.foreground
+            dim: root.dim
+            fontFamily: root.fontFamily
+            iconSize: Style.space(40)
+            numberSize: Style.font.display
+            captionSize: Style.font.caption
+          }
+
+          // who gave them, as Strava names people (first name and last initial)
           Column {
             id: kudosTable
             visible: root.achievementsOpen && root.shownKudoers.length > 0
             width: parent.width
             spacing: Style.space(2)
-
-            Text {
-              text: root.icon("kudos") + "  Kudos (" + (root.shown ? root.shown.kudos : 0) + ")"
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-            }
 
             Grid {
               columns: 2
