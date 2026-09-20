@@ -13,6 +13,16 @@ is stored locally, credentials stay in your system keyring, and nothing is sent 
 
 Not affiliated with or endorsed by Strava.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/popup.png" alt="The LapBar popup for a ride: records with medals and cups, kudos, route, stats, fitness, calendar and totals" width="330">
+  <img src="docs/screenshots/chart.png" alt="The chart window for the same ride: elevation, speed, heart rate, power, cadence, temperature and grade" width="620">
+</p>
+
+*The popup for a ride (records by name, kudos, route, stats, fitness, form, calendar and totals) and the chart window
+for the same ride, one plot per measure with a shared cursor. The names of the people who gave kudos are blurred.*
+
 ## Why LapBar?
 
 **Lap** is one loop of a ride, a run or a swim. Every sport has laps, so the name is about no pace, no speed and

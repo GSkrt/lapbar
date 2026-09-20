@@ -268,8 +268,10 @@ start with those, since that is where the users are. Tasks:
 - [ ] **Rename my own Strava app** to LapBar at strava.com/settings/api: the authorization page shows its name.
 
 - [ ] Put the real install URL in the README (currently `<repository-url>`).
-- [ ] Screenshots in the README: popup and chart window, cropped so nothing personal shows (route near home, name,
-      a revealed Client Secret).
+- [x] Screenshots in the README (2026-09-20): the popup and the chart window for one ride, in `docs/screenshots/`.
+      The kudos names of other people are blurred; the route outline and segment names were left in on purpose (the
+      author decided they show nothing sensitive). Still to do: a short screen recording of the workflow, and a
+      root `preview.png` if the plugin marketplace asks for one.
 - [ ] Delete the old plaintext `.env` in the project folder (git-ignored, unused).
 - [ ] Re-read README, CONTRIBUTING and the About card as a stranger.
 - [ ] Tag `v0.1.0` and write short release notes.

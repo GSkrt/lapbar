@@ -169,7 +169,12 @@ def get(token: str, activity: dict, refresh: bool = False) -> dict | None:
     if not refresh:
         hit = cached(activity["id"])
         if hit is not None:
-            return None if hit.get("empty") else hit
+            if hit.get("empty"):
+                return None
+            if activity.get("name") and hit.get("name") != activity["name"]:      # renamed on Strava since it was stored
+                hit["name"] = activity["name"]
+                _store(activity["id"], hit)
+            return hit
         archived = raw_archive.load(activity)      # the archive has it: rebuild the charts without a request
         if archived is not None:
             return _chart_data(activity, archived)

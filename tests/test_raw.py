@@ -218,3 +218,10 @@ def test_reset_keeps_the_downloaded_activities_unless_asked(monkeypatch):
     assert raw.load(act()) == STREAMS
     assert "downloaded activities" in setup.forget(out=lambda *_: None, everything=True)
     assert raw.load(act()) is None
+
+
+def test_a_ride_renamed_on_strava_shows_its_new_name_in_the_chart(api):
+    streams.get("tok", act(name="Afternoon Ride"))
+    api.urls.clear()
+    assert streams.get("tok", act(name="Test 2"))["name"] == "Test 2"          # no request, and the stored copy is updated
+    assert api.urls == [] and streams.cached(1)["name"] == "Test 2"

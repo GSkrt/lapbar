@@ -71,3 +71,11 @@ def test_canvas_fonts_are_quoted_so_family_names_with_spaces_work():
         for line in qml.read_text().splitlines():
             if re.search(r'"(bold )?\d+px "', line):          # every place that builds a canvas font string
                 assert "cssFamily" in line or "cssFont" in line, f"{qml.name}: {line.strip()}"
+
+
+def test_the_readme_screenshots_exist_and_are_real_pictures():
+    readme = (ROOT / "README.md").read_text()
+    for name in ("popup.png", "chart.png"):
+        assert f"docs/screenshots/{name}" in readme
+        data = (ROOT / "docs" / "screenshots" / name).read_bytes()
+        assert data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) > 20_000
