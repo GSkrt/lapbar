@@ -22,11 +22,13 @@ repository's `SUBMISSION.md`, `VERIFICATION.md` and `SECURITY.md`. Update this f
 - **Tags:** `bar, quickshell`
 - **Suggested tag:** `fitness`
 
-**Listing text** (the manifest's `description`):
+**Listing text** (the manifest's `description`: plain text, at most 500 characters, shown on the card and the detail page):
 
 > Your Strava in the Omarchy bar: the latest activity with route, stats, kudos and records by name, totals per sport
-> for the day, week, month and year, a calendar back through every year you have, and fitness, fatigue and form
-> worked out on your own computer. Credentials stay in your keyring; nothing is sent anywhere but to Strava.
+> for the day, week, month and year, a calendar of all your years, and fitness, fatigue and form worked out on your
+> own computer, with optional motivational nudges. Needs a paid Strava subscription (Strava requires one to create an
+> API app) and your own free API app; a guided setup walks you through it. Credentials stay in your keyring; nothing
+> is sent anywhere but to Strava.
 
 ## Issue body
 
