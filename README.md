@@ -537,12 +537,6 @@ on Strava", as Strava's [brand guidelines](https://developers.strava.com/guideli
 `assets/strava/` are Strava's trademarks, used unmodified and **not** covered by LapBar's license (see the
 notice next to them). LapBar is not affiliated with or endorsed by Strava.
 
-**stravalib.** Thank you to the developers of [stravalib](https://github.com/stravalib/stravalib), the
-open-source Python client for Strava's API (Apache-2.0, maintained by the stravalib community). LapBar does
-not use it: it talks to the API directly with only Python's standard library, so there is nothing to install.
-But if you are building your own Strava tools in Python, stravalib is the place to start, and its docs are a
-good way to learn what the API offers.
-
 **Omarchy and Quickshell.** LapBar is a small plugin running on two open-source projects it could not exist
 without.
 

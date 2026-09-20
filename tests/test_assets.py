@@ -52,15 +52,13 @@ def test_links_to_strava_use_the_exact_required_wording_and_colour():
         assert "#FC5200" in text, f"{qml.name}: link colour must be Strava's #FC5200"
 
 
-def test_the_readme_thanks_strava_and_stravalib_and_keeps_the_disclaimer():
+def test_the_readme_credits_strava_and_keeps_the_disclaimer():
     readme = (ROOT / "README.md").read_text()
-    assert "Powered by Strava" in readme and "stravalib" in readme
+    assert "Powered by Strava" in readme
     assert "not affiliated with or endorsed by Strava" in readme
 
 
-def test_stravalib_is_thanked_honestly_lapbar_does_not_depend_on_it():
-    readme = (ROOT / "README.md").read_text()
-    assert "does\nnot use it" in readme or "does not use it" in readme
+def test_lapbar_talks_to_strava_with_the_standard_library_only():
     source = "\n".join(p.read_text() for p in (ROOT / "lapbar").rglob("*.py"))
     assert "import stravalib" not in source and "from stravalib" not in source
 

@@ -1517,23 +1517,10 @@ Panel {
                 Text {
                   width: parent.inner
                   wrapMode: Text.WordWrap
-                  text: "Thanks to Strava for the platform and its API, and to the stravalib developers for their open-source Python client for that API, a great resource for anyone building on Strava."
+                  text: "Thanks to Strava for the platform and its API."
                   color: root.dim
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
-                }
-
-                Text {
-                  text: "stravalib on GitHub \u2197"
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-
-                  MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openLink("https://github.com/stravalib/stravalib")
-                  }
                 }
 
                 Image {
