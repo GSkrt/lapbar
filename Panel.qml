@@ -143,6 +143,19 @@ Panel {
     return all.filter(function(b) { return !(b.hideEmpty && root.totalsRows(b.t).length === 0) })
   }
 
+  // The popup is as tall as its tallest column; the fitness plot takes up whatever the middle column has left over.
+  readonly property real creditHeight: Style.space(16) + Style.spacing.panelGap
+  readonly property real popupHeight: Math.max(leftCol.implicitHeight, root.wide ? Math.max(rightCol.implicitHeight, thirdCol.implicitHeight + root.creditHeight) : 0)
+  readonly property real plotMinHeight: Style.space(130)
+
+  function fitPlot() {
+    if (!root.wide) return
+    var others = Math.max(leftCol.implicitHeight, thirdCol.implicitHeight + root.creditHeight)
+    var natural = rightCol.implicitHeight - fitnessPlot.height + root.plotMinHeight      // the middle column with the smallest plot
+    var wanted = root.plotMinHeight + Math.max(0, others - natural)
+    fitnessPlot.height = Math.min(wanted, Math.max(root.plotMinHeight, fitnessPlot.width * 0.9))   // keep it in proportion
+  }
+
   function totalsRows(t) {
     var rows = []
     if (!t || !t.by_sport) return rows
@@ -1061,7 +1074,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(root.wide ? 1000 : 340))
-    contentHeight: panel.fittedContentHeight(Math.max(leftCol.implicitHeight, root.wide ? Math.max(rightCol.implicitHeight, thirdCol.implicitHeight) : 0))
+    contentHeight: panel.fittedContentHeight(root.popupHeight)
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -1081,6 +1094,7 @@ Panel {
         // ---- left: the activity itself
         Column {
           id: leftCol
+          onImplicitHeightChanged: Qt.callLater(root.fitPlot)
           width: layout.colWidth
           spacing: Style.spacing.panelGap
 
@@ -2086,6 +2100,7 @@ Panel {
         // ---- right: how you are doing
         Column {
           id: rightCol
+          onImplicitHeightChanged: Qt.callLater(root.fitPlot)
           visible: root.wide
           width: layout.colWidth
           spacing: Style.spacing.panelGap
@@ -2257,7 +2272,8 @@ Panel {
           FitnessPlot {
             id: fitnessPlot
             width: parent.width
-            height: Style.space(130)
+            height: root.plotMinHeight
+            onWidthChanged: Qt.callLater(root.fitPlot)
             days: root.fitnessData ? root.fitnessData.days.slice(-90) : []
             fitnessColor: root.fitnessColor
             fatigueColor: root.fatigueColor
@@ -2530,6 +2546,7 @@ Panel {
         // ---- third column: the calendar, the totals, and what to do when you skip a day
         Column {
           id: thirdCol
+          onImplicitHeightChanged: Qt.callLater(root.fitPlot)
           visible: root.wide
           width: layout.colWidth
           spacing: Style.spacing.panelGap
@@ -2904,21 +2921,18 @@ Panel {
             }
           }
         }
-
-        Item {                                                // the required credit, bottom right
-          width: parent.width
-          height: Style.space(16)
-
-          Image {
-            anchors.right: parent.right
-            height: parent.height
-            source: root.stravaLogo
-            sourceSize.height: 48
-            fillMode: Image.PreserveAspectFit
-            horizontalAlignment: Image.AlignRight
-          }
         }
-        }
+      }
+
+      Image {                                                 // the required credit, in the popup's bottom-right corner
+        visible: root.wide
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: Style.space(16)
+        source: root.stravaLogo
+        sourceSize.height: 48
+        fillMode: Image.PreserveAspectFit
+        horizontalAlignment: Image.AlignRight
       }
     }
   }

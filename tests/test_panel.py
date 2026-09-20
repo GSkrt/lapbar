@@ -126,3 +126,10 @@ def test_a_third_column_holds_the_calendar_totals_controls_and_the_strava_credit
     assert "(width - spacing * 2) / 3" in PANEL and "root.wide ? 1000 : 340" in PANEL
     left = PANEL[PANEL.index("id: leftCol"):PANEL.index("id: rightCol")]
     assert "visible: !!root.summary\n          source: root.stravaLogo" not in left       # the credit left the left column
+
+
+def test_the_fitness_plot_fills_the_middle_column_and_the_credit_sits_in_the_popup_corner():
+    assert "function fitPlot()" in PANEL and "fitnessPlot.width * 0.9" in PANEL           # grows to fill, in proportion
+    assert PANEL.count("onImplicitHeightChanged: Qt.callLater(root.fitPlot)") == 3
+    corner = PANEL[PANEL.index("the required credit, in the popup's bottom-right corner"):]
+    assert "anchors.right: parent.right" in corner and "anchors.bottom: parent.bottom" in corner
