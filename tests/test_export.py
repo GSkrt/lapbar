@@ -462,3 +462,67 @@ def test_samples_are_loaded_in_activity_id_order_so_blocks_stay_clustered(data, 
     export.sync(path)
     ids = [r[0] for r in rows(path, "SELECT activity_id FROM samples ORDER BY rowid")]
     assert ids == sorted(ids)
+
+
+# ---- the folder chooser and the date picker in the window
+
+def test_the_folder_chooser_uses_zenity_and_returns_the_folder(monkeypatch):
+    from lapbar import pick
+    seen = {}
+    monkeypatch.setattr(pick.shutil, "which", lambda name: "/usr/bin/" + name if name == "zenity" else None)
+    def fake_run(cmd, **kw):
+        seen["cmd"] = cmd
+        class Done:
+            returncode, stdout = 0, "/home/me/Documents/data/\n"
+        return Done()
+    monkeypatch.setattr(pick.subprocess, "run", fake_run)
+    assert pick.choose_folder("~", "Folder for the DuckDB file") == "/home/me/Documents/data"
+    assert seen["cmd"][:3] == ["zenity", "--file-selection", "--directory"] and "Folder for the DuckDB file" in seen["cmd"]
+
+
+def test_a_cancelled_dialog_is_not_an_error_and_a_missing_start_folder_falls_back(monkeypatch, tmp_path):
+    from lapbar import pick
+    monkeypatch.setattr(pick.shutil, "which", lambda name: "/usr/bin/zenity" if name == "zenity" else None)
+    seen = {}
+    def cancelled(cmd, **kw):
+        seen["cmd"] = cmd
+        class Done:
+            returncode, stdout = 1, ""
+        return Done()
+    monkeypatch.setattr(pick.subprocess, "run", cancelled)
+    assert pick.choose_folder(str(tmp_path / "gone" / "deeper")) is None
+    assert seen["cmd"][seen["cmd"].index("--filename") + 1] == str(tmp_path) + "/"          # opened at the nearest folder that exists
+
+
+def test_without_any_chooser_the_error_says_what_to_install(monkeypatch, capsys):
+    from lapbar import pick
+    monkeypatch.setattr(pick.shutil, "which", lambda name: None)
+    with pytest.raises(pick.NoChooser, match="zenity"):
+        pick.choose_folder()
+    with pytest.raises(SystemExit):
+        cli.main(["pick-folder"])
+    out = json.loads(capsys.readouterr().out)
+    assert out["error"] == "no_chooser" and "zenity" in out["message"]
+
+
+def test_the_pick_folder_command_prints_the_choice_or_cancelled(monkeypatch, capsys):
+    from lapbar import pick
+    def run(*argv):
+        with pytest.raises(SystemExit) as done:
+            cli.main(["pick-folder", *argv])
+        assert done.value.code == 0
+        return json.loads(capsys.readouterr().out)
+    monkeypatch.setattr(pick, "choose_folder", lambda start, title: "/data/lapbar")
+    assert run("--start", "/data") == {"path": "/data/lapbar"}
+    monkeypatch.setattr(pick, "choose_folder", lambda start, title: None)
+    assert run() == {"cancelled": True}
+
+
+def test_the_status_gives_the_picker_its_range_and_the_export_its_folder_and_file_name(data):
+    status = manage.status()
+    assert status["history"]["first_day"] == "2025-05-01"
+    assert status["export"]["dir"] == str(config.data_dir()) and status["export"]["filename"] == "lapbar.duckdb"
+    prefs.update(history_from="2026-01-01", export_path="~/elsewhere/mine.duckdb")
+    status = manage.status()
+    assert status["history"]["first_day"] == "2025-05-01"                 # the earliest day Strava has, whatever the limit
+    assert status["export"]["filename"] == "mine.duckdb" and status["export"]["dir"].endswith("/elsewhere")

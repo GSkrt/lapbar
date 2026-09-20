@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime
 
-from . import auth, charts, config, details, export, fitness, history, manage, mute, prefs, ratelimit, raw, setup, streams, vault
+from . import auth, charts, config, details, export, fitness, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -231,6 +231,17 @@ def cmd_prefs(args) -> int:
     return 0
 
 
+def cmd_pick_folder(args) -> int:
+    """Open the desktop's folder chooser: {"path": ...}, {"cancelled": true} or an error."""
+    try:
+        chosen = pick.choose_folder(args.start, args.title)
+    except pick.NoChooser as e:
+        print(json.dumps({"error": "no_chooser", "message": str(e)}))
+        return 1
+    print(json.dumps({"path": chosen} if chosen else {"cancelled": True}))
+    return 0
+
+
 def cmd_export(args) -> int:
     """Create or update the DuckDB database from everything stored."""
     try:
@@ -344,6 +355,10 @@ def main(argv: list[str] | None = None) -> None:
     prefs_p.add_argument("--continuous", choices=("on", "off"), help="update the database after every refresh")
     prefs_p.add_argument("--spatial", choices=("on", "off"), help="add real geometry (downloads DuckDB's spatial extension once)")
     prefs_p.set_defaults(func=cmd_prefs)
+    pick_p = sub.add_parser("pick-folder", help="open the desktop's folder chooser and print the choice (JSON)")
+    pick_p.add_argument("--start", default=None, metavar="DIR", help="folder to open at")
+    pick_p.add_argument("--title", default="Choose a folder")
+    pick_p.set_defaults(func=cmd_pick_folder)
     export_p = sub.add_parser("export", help="export everything stored into a DuckDB database")
     export_p.add_argument("--path", metavar="FILE", help="database file (default: the saved path)")
     export_p.add_argument("--rebuild", action="store_true", help="build a fresh file instead of updating")

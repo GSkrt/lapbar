@@ -52,6 +52,7 @@ FloatingWindow {
   property var status: null
   property string message: ""
   property bool messageIsError: false
+  property bool pickerOpen: false
 
   function refresh() {
     if (statusProc.running) return
@@ -66,6 +67,16 @@ FloatingWindow {
     win.messageIsError = false
     actionProc.command = [win.python, "-I", win.bin].concat(args)
     actionProc.running = true
+  }
+
+  // The desktop's own folder dialog, through `lapbar pick-folder`; the file keeps its name inside the chosen folder.
+  function pickFolder() {
+    if (pickProc.running || !win.status) return
+    win.message = "Choose a folder in the dialog\u2026"
+    win.messageIsError = false
+    pickProc.command = [win.python, "-I", win.bin, "pick-folder", "--start", win.status.export.dir,
+                        "--title", "Folder for the DuckDB file"]
+    pickProc.running = true
   }
 
   function copyText(text) {
@@ -98,6 +109,21 @@ FloatingWindow {
         } else win.message = "Saved."
       } catch (e) { win.message = "Something went wrong."; win.messageIsError = true }
       win.refresh()
+    }
+  }
+
+  Process {
+    id: pickProc
+    running: false
+    command: []
+    stdout: StdioCollector { id: pickOut; waitForEnd: true }
+    onExited: {
+      try {
+        var r = JSON.parse(pickOut.text)
+        if (r.error) { win.message = r.message || r.error; win.messageIsError = true }
+        else if (r.cancelled) win.message = "No folder chosen."
+        else win.act(["prefs", "--export-path", r.path + "/" + win.status.export.filename], "Saving the folder\u2026")
+      } catch (e) { win.message = "The folder dialog did not answer."; win.messageIsError = true }
     }
   }
 
@@ -238,22 +264,29 @@ FloatingWindow {
             Row {
               spacing: 8
 
-              Field {
-                id: limitField
-                width: 150
-                placeholder: "YYYY-MM-DD"
-                onAccepted: win.act(["prefs", "--history-from", text], "Saving the limit…")
-
-                Connections {
-                  target: win
-                  function onStatusChanged() {
-                    if (!limitField.typing && win.status) limitField.text = win.status.history.limit || ""
-                  }
+              Btn {
+                label: win.status && win.status.history.limit ? "From " + win.status.history.limit + "  \u25be" : "Choose a date\u2026  \u25be"
+                primary: !!win.status && !!win.status.history.limit
+                onClicked: {
+                  if (!win.pickerOpen && win.status) datePicker.show(win.status.history.limit || win.status.history.first_day)
+                  win.pickerOpen = !win.pickerOpen
                 }
               }
 
-              Btn { label: "Apply"; primary: true; onClicked: win.act(["prefs", "--history-from", limitField.text], "Saving the limit…") }
-              Btn { label: "No limit"; onClicked: { limitField.text = ""; win.act(["prefs", "--history-from", "none"], "Removing the limit…") } }
+              Btn {
+                label: "No limit"
+                enabled: !!win.status && !!win.status.history.limit
+                onClicked: { win.pickerOpen = false; win.act(["prefs", "--history-from", "none"], "Removing the limit\u2026") }
+              }
+            }
+
+            DatePicker {
+              id: datePicker
+              visible: win.pickerOpen
+              width: parent.width
+              selected: win.status && win.status.history.limit ? win.status.history.limit : ""
+              minDate: win.status && win.status.history.first_day ? win.status.history.first_day : ""
+              onPicked: function(date) { win.pickerOpen = false; win.act(["prefs", "--history-from", date], "Saving the limit\u2026") }
             }
 
             Caption {
@@ -325,7 +358,7 @@ FloatingWindow {
                 Rectangle {
                   x: dayLabel.width
                   anchors.verticalCenter: parent.verticalCenter
-                  width: Math.max(dayRow.modelData.activities > 0 ? 3 : 0, (parent.width - dayLabel.width - 132) * dayRow.modelData.activities / dayRow.maxActivities)
+                  width: Math.max(dayRow.modelData.activities > 0 ? 3 : 0, (parent.width - dayLabel.width - 176) * dayRow.modelData.activities / dayRow.maxActivities)
                   height: 10
                   radius: 3
                   color: win.accent
@@ -448,31 +481,43 @@ FloatingWindow {
           }
 
           Text {
-            text: "Save the database to"
+            text: "Save the database in"
             color: win.fg
             font.family: win.fontName
             font.pixelSize: 13
             font.bold: true
           }
 
-          Field {
-            id: pathField
+          Rectangle {
             width: parent.width
-            placeholder: win.status ? win.status.export.default_path : ""
-            onAccepted: win.act(["prefs", "--export-path", text], "Saving the path…")
+            height: 30
+            radius: 5
+            color: win.mix(win.fg, win.surface, 0.06)
+            border.width: 1
+            border.color: win.line
 
-            Connections {
-              target: win
-              function onStatusChanged() {
-                if (!pathField.typing && win.status) pathField.text = win.status.export.path
-              }
+            Text {
+              anchors.fill: parent
+              anchors.leftMargin: 8
+              anchors.rightMargin: 8
+              verticalAlignment: Text.AlignVCenter
+              elide: Text.ElideMiddle
+              text: win.status ? win.status.export.dir : ""
+              color: win.fg
+              font.family: win.fontName
+              font.pixelSize: 12
             }
           }
 
           Row {
             spacing: 8
-            Btn { label: "Save path"; onClicked: win.act(["prefs", "--export-path", pathField.text], "Saving the path…") }
-            Btn { label: "Default"; onClicked: { if (win.status) pathField.text = win.status.export.default_path; win.act(["prefs", "--export-path", ""], "Using the default path…") } }
+            Btn { label: "Choose folder\u2026"; primary: true; enabled: !pickProc.running; onClicked: win.pickFolder() }
+            Btn { label: "Default"; onClicked: win.act(["prefs", "--export-path", ""], "Using the default folder\u2026") }
+          }
+
+          Caption {
+            width: parent.width
+            text: win.status ? "The file is called " + win.status.export.filename + "." : ""
           }
 
           Row {
@@ -481,12 +526,12 @@ FloatingWindow {
               label: "Export now"
               primary: true
               enabled: !!win.status && win.status.export.available && !win.status.export.state.running && !actionProc.running
-              onClicked: win.act(["export", "--path", pathField.text !== "" ? pathField.text : win.status.export.default_path], "Exporting…")
+              onClicked: win.act(["export"], "Exporting\u2026")
             }
             Btn {
               label: "Rebuild"
               enabled: !!win.status && win.status.export.available && !win.status.export.state.running && !actionProc.running
-              onClicked: win.act(["export", "--rebuild", "--path", pathField.text !== "" ? pathField.text : win.status.export.default_path], "Rebuilding…")
+              onClicked: win.act(["export", "--rebuild"], "Rebuilding\u2026")
             }
           }
 

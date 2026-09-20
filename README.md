@@ -236,13 +236,14 @@ afterwards. The estimate is never applied on its own, only when you click.
 
 - **History.** How many activities you have on Strava, how many have their full data stored here (a bar, and the
   size on disk with an estimate for when it is complete), and a **date limit**: *Fetch history back to* a day of
-  your choice, so LapBar never goes further into the past. Older activities are then not downloaded and are hidden
+  your choice, chosen on a small calendar (no typing), so LapBar never goes further into the past. Older activities are then not downloaded and are hidden
   from the calendar; what is already stored stays on disk. The limit is saved in `~/.config/lapbar/prefs.json`.
 - **Fetching, day by day.** For each of the last 14 days (UTC, the day Strava's allowance resets on): how many
   activities were stored, and the most requests Strava reported. Today's line shows how much of the daily
   allowance is used.
 - **Export to DuckDB.** Builds a [DuckDB](https://duckdb.org) database from everything stored, for your own SQL.
-  Choose where the file goes (the default is `~/.local/share/lapbar/lapbar.duckdb`), press **Export now**
+  Pick the folder for the file with **Choose folder…** (the desktop's own folder dialog, `zenity`, which a normal
+  Omarchy install has; the file is called `lapbar.duckdb`; the default folder is `~/.local/share/lapbar`), press **Export now**
   (only activities that are not in the file yet are added) or **Rebuild** (a fresh file), or switch on
   *Keep it up to date*: after every refresh the new activities are appended, in the background. LapBar never reads the
   database back, so you can open, query, copy or delete it freely. The window shows this schema beside the
@@ -255,7 +256,7 @@ window says so and shows the install command; from a terminal:
     sudo pacman -S duckdb                  # optional: the `duckdb` command line, to query the file
 
 (The widget runs with the system Python, so the *package* has to be the system one; `pip install` into a user
-folder will not be seen.) Commands: `lapbar export [--path FILE] [--rebuild]`, `lapbar prefs --history-from
+folder will not be seen.) Commands: `lapbar export [--path FILE] [--rebuild]`, `lapbar pick-folder` (the folder dialog, as JSON), `lapbar prefs --history-from
 YYYY-MM-DD|none --export-path FILE --continuous on|off`, `lapbar manage --status` (what the window shows, as JSON).
 
 **The schema.** Basic ride data is in `activities`; everything spatial joins to it on the activity id:

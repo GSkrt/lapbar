@@ -47,9 +47,12 @@ def status() -> dict:
     raw_bytes = _dir_bytes(raw._dir())
     hist = history.summary()
     db = prefs.export_path()
+    every_day = [d for d in (hist["from"], min((cache.get("days") or {"": 0}), default=None) or None) if d]
+    first_day = min(every_day) if every_day else None       # the earliest day Strava has, whatever the limit says
     return {
         "history": {
             "activities": known_total,
+            "first_day": first_day,
             "oldest_day": min(days) if days else None,
             "newest_day": max(days) if days else None,
             "years_stored": hist["years"],
@@ -66,6 +69,8 @@ def status() -> dict:
         "export": {
             **export.availability(),
             "path": str(db),
+            "dir": str(db.parent),
+            "filename": db.name,
             "default_path": prefs.default_export_path(),
             "continuous": bool(p["export_continuous"]),
             "spatial_wanted": bool(p["export_spatial"]),
