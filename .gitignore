@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+cache.json
+*.egg-info/
+
+# Secrets and local data must never be committed, whatever they are called.
+.env.*
+*.env
+secrets.json
+tokens.json
+streams/
+.pytest_cache/

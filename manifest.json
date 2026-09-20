@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.gskrt.lapbar",
+  "name": "LapBar",
+  "version": "0.1.0",
+  "author": "Gregor Skrt",
+  "license": "GPL-3.0-or-later",
+  "description": "Shows your latest Strava activity in the bar: a route trace, sport-aware stats (pace for runners and swimmers, speed and power for riders), kudos and PRs, plus weekly and yearly totals per sport.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "LapBar",
+    "description": "Latest Strava activity with route trace and weekly/yearly totals.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 900,
+      "cycleIntervalSec": 6,
+      "loadMetric": "time",
+      "downloadHistory": 3,
+      "ftp": 0
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "description": "How often to ask Strava for new data (60 to 3600 seconds). Also settable from the widget menu. LapBar reads Strava's own usage counters and keeps itself inside the daily allowance: automatic refreshes pause at 60% of it, leaving room for manual refreshes (the refresh button, opening the panel), which work until 90%.",
+        "min": 60,
+        "max": 3600,
+        "step": 60,
+        "defaultValue": 900
+      },
+      {
+        "key": "cycleIntervalSec",
+        "type": "integer",
+        "label": "Bar cycle interval (seconds)",
+        "description": "The bar button rotates through the latest activity, this week's total, kudos and PRs, and your training load compared with last week. 0 keeps it on the latest activity.",
+        "min": 0,
+        "max": 60,
+        "step": 1,
+        "defaultValue": 6
+      },
+      {
+        "key": "loadMetric",
+        "type": "string",
+        "label": "Training load measure",
+        "description": "What 'ahead of / behind last week' compares: time (works for every sport), distance, or effort (Strava's Relative Effort, needs a heart-rate device; falls back to time).",
+        "defaultValue": "time"
+      },
+      {
+        "key": "downloadHistory",
+        "type": "integer",
+        "label": "Download older activities' charts (per refresh)",
+        "description": "LapBar stores every activity's time series on disk the first time it fetches it, so it is never downloaded twice. The newest ride is fetched automatically; this many older activities are added on each refresh, newest first, until your history is complete. Each costs one Strava request; 0 turns background downloads off (charts you open are still downloaded on demand).",
+        "min": 0,
+        "max": 10,
+        "step": 1,
+        "defaultValue": 3
+      },
+      {
+        "key": "ftp",
+        "type": "integer",
+        "label": "FTP (watts, cycling)",
+        "description": "Your functional threshold power, shown as a large number in the popup and used for power-based training load on rides with a power meter. Strava's API does not give it to LapBar with the permissions it asks for, so enter it here or from the widget menu (0 = unknown). The menu can also estimate it from your ride history.",
+        "min": 0,
+        "max": 600,
+        "step": 5,
+        "defaultValue": 0
+      }
+    ]
+  }
+}
