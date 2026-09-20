@@ -259,9 +259,10 @@ start with those, since that is where the users are. Tasks:
 
 ## 3. Before opening the repository
 
-- [x] **Name decided: LapBar** (2026-09-20; earlier working names *pacebar* and *AFKbar* were dropped). Reasons are in
-      the README ("Why LapBar?"): a lap belongs to every sport, the name has no Strava in it (their brand rules), and
-      "bar" is where it lives today while the command-line core is not tied to one desktop.
+- [x] **Name decided: LapBar** (2026-09-20; earlier working names *pacebar* and *AFKbar* were dropped). Reasons: a lap
+      belongs to every sport, the name has no Strava in it (their brand rules), and "bar" is where it lives today while
+      the command-line core is not tied to one desktop. (Removed from the README on purpose: the name needs no
+      explanation there.)
 - [ ] Do a proper **trademark search** (EUIPO / USPTO) for LapBar. I only checked exact repository names on GitHub
       (none other than ours: `lapbar` has 0 repositories), and package names on PyPI, AUR and npm were free for the
       earlier names, so re-check those for `lapbar`. Also decide on a domain.

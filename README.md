@@ -23,27 +23,6 @@ Not affiliated with or endorsed by Strava.
 *The popup for a ride (records by name, kudos, route, stats, fitness, form, calendar and totals) and the chart window
 for the same ride, one plot per measure with a shared cursor. The names of the people who gave kudos are blurred.*
 
-## Why LapBar?
-
-**Lap** is one loop of a ride, a run or a swim. Every sport has laps, so the name is about no pace, no speed and
-no single activity, and it suits cyclists, runners, swimmers and walkers alike. "One more lap" is also what LapBar
-nudges you towards: it shows what you did the last time you got up and moved, and (over time) encourages you to do
-it again.
-
-**Bar** is where it lives today: the Omarchy status bar. The Strava sign-in, request budgeting and fitness
-calculations run as a separate command-line tool (`lapbar`), so nothing about the name ties the project to one
-desktop.
-
-Names it deliberately is not:
-
-- **Not "...Strava".** Strava's brand guidelines say you must not use their name in an app's name, so the
-  connection is shown the way they ask instead: the "Powered by Strava" logo, and "View on Strava" links.
-  LapBar is not affiliated with or endorsed by Strava.
-- **Not "pace..." or "AFK...".** Earlier working names, *pacebar* and *AFKbar*, were dropped: pace leans towards
-  runners (and clashed with an existing Mac app), and AFK reads as a gaming status.
-
-It is written in lowercase (`lapbar`) for the command, the plugin id and file paths, and **LapBar** in prose.
-
 ## Getting started
 
 About five minutes, most of it creating your Strava app.
