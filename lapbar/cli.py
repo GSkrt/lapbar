@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime
 
-from . import auth, charts, config, details, export, fitness, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
+from . import auth, charts, config, details, export, fitness, helpwin, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -212,6 +212,14 @@ def cmd_manage(args) -> int:
     return 0
 
 
+def cmd_howto(args) -> int:
+    """Open the how-to window (the guide from docs/help.md)."""
+    theme = {f"LAPBAR_{k}": v for k, v in (("FG", args.fg), ("BG", args.bg), ("ACCENT", args.accent), ("FONT", args.font)) if v}
+    helpwin.open_window(theme)
+    print(json.dumps({"ok": True}))
+    return 0
+
+
 def cmd_prefs(args) -> int:
     changes = {}
     if args.history_from is not None:
@@ -360,6 +368,10 @@ def main(argv: list[str] | None = None) -> None:
     for flag in ("--fg", "--bg", "--accent", "--font"):
         manage_p.add_argument(flag, default=None)
     manage_p.set_defaults(func=cmd_manage)
+    howto_p = sub.add_parser("howto", help="open the how-to window: the guide, inside the app")
+    for flag in ("--fg", "--bg", "--accent", "--font"):
+        howto_p.add_argument(flag, default=None)
+    howto_p.set_defaults(func=cmd_howto)
     prefs_p = sub.add_parser("prefs", help="show or change LapBar's preferences (JSON)")
     prefs_p.add_argument("--history-from", metavar="YYYY-MM-DD|none", help="earliest day to fetch and show")
     prefs_p.add_argument("--export-path", metavar="FILE", help="where the DuckDB database goes")

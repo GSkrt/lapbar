@@ -187,6 +187,10 @@ up to date, and the own-app mode described above will keep working either way.
 
 ## What the widget does
 
+**The same guide is inside the app:** open the popup's menu (⋮) and choose **How to use…** for this page, with the
+pictures, in a window of its own (arrow keys, Page Up/Down and the mouse wheel scroll it). It is `docs/help.md`,
+drawn by Qt's own Markdown support, so it needs no extra library and no network.
+
 ### The bar button
 
 The button in your Omarchy bar shows one short line and changes every 6 seconds (`cycleIntervalSec`; `0` keeps it

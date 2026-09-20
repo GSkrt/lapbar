@@ -41,12 +41,13 @@ def _lua(code: str) -> bool:
     return bool(out) and out.strip().startswith("ok")
 
 
-def window_geometry(monitor: dict) -> tuple[int, int, int, int]:
+def window_geometry(monitor: dict, size: tuple[int, int] | None = None) -> tuple[int, int, int, int]:
     """(width, height, x, y) of a centred window, in Hyprland's logical pixels, for the given monitor."""
     scale = monitor.get("scale") or 1
     logical_w, logical_h = monitor["width"] / scale, monitor["height"] / scale
-    width = int(min(WINDOW_W, logical_w * SCREEN_FRACTION))
-    height = int(min(WINDOW_H, logical_h * SCREEN_FRACTION))
+    wanted_w, wanted_h = size or (WINDOW_W, WINDOW_H)
+    width = int(min(wanted_w, logical_w * SCREEN_FRACTION))
+    height = int(min(wanted_h, logical_h * SCREEN_FRACTION))
     x = int(monitor.get("x", 0) + (logical_w - width) / 2)
     y = int(monitor.get("y", 0) + (logical_h - height) / 2)
     return width, height, x, y
@@ -66,7 +67,7 @@ def _place(pid: int, w: int, h: int, x: int, y: int) -> None:
                             f"dispatch movewindowpixel exact {x} {y},{target}")
 
 
-def float_window(pid: int, wait: float = WAIT_FOR_WINDOW, sleep=time.sleep) -> bool:
+def float_window(pid: int, wait: float = WAIT_FOR_WINDOW, sleep=time.sleep, size: tuple[int, int] | None = None) -> bool:
     """Float, size and centre the window owned by `pid`. Returns True if it was found and moved."""
     deadline = time.monotonic() + wait
     while time.monotonic() < deadline:
@@ -80,7 +81,7 @@ def float_window(pid: int, wait: float = WAIT_FOR_WINDOW, sleep=time.sleep) -> b
     monitor = next((m for m in monitors if m.get("focused")), monitors[0] if monitors else None)
     if not monitor:
         return False
-    _place(pid, *window_geometry(monitor))
+    _place(pid, *window_geometry(monitor, size))
     return True
 
 

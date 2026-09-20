@@ -479,6 +479,7 @@ Panel {
     if (root.needsSetup) {
       out.push({ label: root.errorCode === "not_configured" ? "Start setup" : "Sign in with Strava", action: "setup" })
       out.push({ label: "Open Strava API settings", action: "api" })
+      out.push({ label: "How to use\u2026", action: "howto" })
       out.push({ label: "About LapBar", action: "about" })
       return out
     }
@@ -487,6 +488,7 @@ Panel {
     out.push({ label: "Refresh every " + root.intervalLabel(root.refreshIntervalSec) + "\u2026", action: "interval" })
     out.push({ label: "FTP: " + (root.ftp > 0 ? root.ftp + " W" : "not set") + "\u2026", action: "ftp" })
     out.push({ label: "Manage data\u2026", action: "manage" })
+    out.push({ label: "How to use\u2026", action: "howto" })
     out.push({ label: "Update credentials or sign in\u2026", action: "setup" })
     out.push({ label: "Open Strava API settings", action: "api" })
     out.push({ label: "About LapBar", action: "about" })
@@ -503,6 +505,7 @@ Panel {
     if (action === "refresh") root.refresh(true)
     else if (action === "mute") root.setMuted("toggle")
     else if (action === "manage") root.openManage()
+    else if (action === "howto") root.openHowto()
     else if (action === "setup") root.openSetup()
     else if (action === "api") root.openLink("https://www.strava.com/settings/api")
   }
@@ -837,6 +840,14 @@ Panel {
   function openManage() {
     if (chartsProcess.running) return
     chartsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "manage",
+      "--fg", String(root.foreground), "--bg", String(Color.background), "--accent", String(Color.accent), "--font", root.fontFamily]
+    chartsProcess.running = true
+  }
+
+  // The how-to window: the guide from docs/help.md, drawn inside the app (its own process, like the charts).
+  function openHowto() {
+    if (chartsProcess.running) return
+    chartsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "howto",
       "--fg", String(root.foreground), "--bg", String(Color.background), "--accent", String(Color.accent), "--font", root.fontFamily]
     chartsProcess.running = true
   }
