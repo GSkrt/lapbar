@@ -22,7 +22,7 @@
       "refreshIntervalSec": 900,
       "cycleIntervalSec": 6,
       "loadMetric": "time",
-      "downloadHistory": 3,
+      "downloadHistory": 12,
       "ftp": 0,
       "historyYears": 99
     },
@@ -57,12 +57,12 @@
       {
         "key": "downloadHistory",
         "type": "integer",
-        "label": "Download older activities' charts (per refresh)",
-        "description": "LapBar stores every activity's time series on disk the first time it fetches it, so it is never downloaded twice. The newest ride is fetched automatically; this many older activities are added on each refresh, newest first, until your history is complete. Each costs one Strava request; 0 turns background downloads off (charts you open are still downloaded on demand).",
+        "label": "Store older activities in the background (per refresh)",
+        "description": "LapBar keeps the complete second-by-second data of every activity, GPS included, in ~/.local/share/lapbar (one Strava request each, downloaded once). The newest ride is stored automatically; this many older ones are added on each refresh, newest first, until everything is stored. The number is scaled down as the day's request allowance fills up and stops at 40% of it. 0 turns the background download off (a chart you open is still downloaded on demand).",
         "min": 0,
-        "max": 10,
+        "max": 30,
         "step": 1,
-        "defaultValue": 3
+        "defaultValue": 12
       },
       {
         "key": "ftp",

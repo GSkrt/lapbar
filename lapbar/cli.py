@@ -1,11 +1,12 @@
 """Fetch from all enabled providers and write cache.json for the widget."""
 import argparse
+import itertools
 import json
 import os
 import sys
 from datetime import datetime
 
-from . import auth, charts, config, details, fitness, history, mute, ratelimit, setup, streams, vault
+from . import auth, charts, config, details, fitness, history, mute, ratelimit, raw, setup, streams, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -70,7 +71,7 @@ def cmd_fetch(args) -> int:
     try:
         snap = ratelimit.check(kind)
         # Extras (history downloads, kudos name look-ups) only run on the timer and only with plenty of room.
-        summary = strava.fetch(previous=_read_cache(), backfill=args.backfill, ftp=args.ftp,
+        summary = strava.fetch(previous=_read_cache(), backfill=ratelimit.backfill_quota(snap, args.backfill), ftp=args.ftp,
                                history_years=args.history_years,
                                optional=(kind == "auto" and ratelimit.allow_optional(snap)))
     except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
@@ -177,6 +178,23 @@ def cmd_history(args) -> int:
     return 0
 
 
+def cmd_archive(args) -> int:
+    """Download the full time series (with GPS) of activities that are not stored yet, now: `--limit` of them."""
+    cache = _read_cache() or {}
+    activities = itertools.chain(cache.get("activities", []), history.iter_activities())
+    try:
+        ratelimit.check("action")
+        token = auth.default_token_source().access_token()
+        done = streams.backfill(token, activities, args.limit)
+    except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
+            HttpError, OSError) as e:
+        code, message = _classify(e)
+        print(json.dumps({"error": code, "message": message}))
+        return 1
+    print(json.dumps({"downloaded": done, "stored": len(raw.archived_ids()), "known": len(raw.known_ids())}))
+    return 0
+
+
 def cmd_charts(args) -> int:
     data, error = _series_data(args)
     if error:
@@ -211,11 +229,12 @@ def cmd_setup(args) -> int:
 
 def cmd_reset(args) -> int:
     if not args.yes:
+        print(f"Your downloaded activities in {config.data_dir()} are kept; add --all to remove them too.")
         answer = input("Remove LapBar's saved credentials, sign-in and cache from this computer? [y/N] ")
         if answer.strip().lower() != "y":
             print("Nothing removed.")
             return 1
-    removed = setup.forget()
+    removed = setup.forget(everything=args.all)
     print("Removed: " + (", ".join(removed) if removed else "nothing (already clean)"))
     return 0
 
@@ -261,6 +280,9 @@ def main(argv: list[str] | None = None) -> None:
     history_p.add_argument("--refresh", action="store_true", help="with --sync: download stored years again too")
     history_p.add_argument("--years", type=int, default=99, metavar="N", help="with --sync: how many years back (default: all)")
     history_p.set_defaults(func=cmd_history)
+    archive_p = sub.add_parser("archive", help="download the full time series (with GPS) of activities not stored yet")
+    archive_p.add_argument("--limit", type=int, default=50, metavar="N", help="how many to download now (default 50)")
+    archive_p.set_defaults(func=cmd_archive)
     charts_p = sub.add_parser("charts", help="open the chart window for an activity")
     charts_p.add_argument("activity", type=int)
     charts_p.add_argument("--refresh", action="store_true", help="download the data again first")
@@ -277,6 +299,7 @@ def main(argv: list[str] | None = None) -> None:
     setup_p.set_defaults(func=cmd_setup)
     reset_p = sub.add_parser("reset", help="remove all saved credentials, sign-in and cache")
     reset_p.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    reset_p.add_argument("--all", action="store_true", help="also delete the downloaded activities (the raw archive)")
     reset_p.set_defaults(func=cmd_reset)
     sub.add_parser("status", help="show whether LapBar is set up (JSON)").set_defaults(func=cmd_status)
     mute_p = sub.add_parser("mute", help="mute or unmute kudos notifications")

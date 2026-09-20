@@ -7,13 +7,10 @@ per activity under ~/.cache/lapbar/streams/. Activities without distance fall ba
 import json
 import os
 
-from . import config, sports
+from . import config, raw as raw_archive, sports
 from .http import HttpError, request_json
 
-STREAMS_URL = (
-    "https://www.strava.com/api/v3/activities/{id}/streams"
-    "?keys=time,distance,altitude,velocity_smooth,heartrate,cadence,watts,temp,grade_smooth&key_by_type=true"
-)
+STREAMS_URL = raw_archive.URL      # everything at once, GPS included: the full answer is kept (see raw.py)
 # Bump when the stored format or the resampling changes: older files are then downloaded once more.
 DATA_VERSION = 2
 MAX_POINTS = 1500
@@ -145,8 +142,27 @@ def build(activity: dict, raw: dict) -> dict:
     }
 
 
+def _download(token: str, activity: dict) -> dict:
+    """Ask Strava once, keep the complete answer in the raw archive, and return it ({} if there are no streams)."""
+    try:
+        answer = request_json(STREAMS_URL.format(id=activity["id"]), token=token)
+    except HttpError as e:
+        if e.status != 404:
+            raise
+        answer = {}
+    answer = answer if isinstance(answer, dict) else {}
+    raw_archive.store(activity, answer)
+    return answer
+
+
+def _chart_data(activity: dict, answer: dict) -> dict | None:
+    result = build(activity, answer) if answer else {"empty": True}
+    _store(activity["id"], result)
+    return None if result.get("empty") else result
+
+
 def get(token: str, activity: dict, refresh: bool = False) -> dict | None:
-    """Chart data for an activity: from disk if we have it, otherwise fetched once and stored.
+    """Chart data for an activity: from disk if we have it, otherwise made from the raw archive, otherwise fetched once.
 
     Returns None when Strava has no streams for it (manual entries); that is remembered too.
     """
@@ -154,28 +170,31 @@ def get(token: str, activity: dict, refresh: bool = False) -> dict | None:
         hit = cached(activity["id"])
         if hit is not None:
             return None if hit.get("empty") else hit
-    try:
-        raw = request_json(STREAMS_URL.format(id=activity["id"]), token=token)
-    except HttpError as e:
-        if e.status == 404:
-            _store(activity["id"], {"empty": True})
-            return None
-        raise
-    result = build(activity, raw if isinstance(raw, dict) else {})
-    _store(activity["id"], result)
-    return None if result.get("empty") else result
+        archived = raw_archive.load(activity)      # the archive has it: rebuild the charts without a request
+        if archived is not None:
+            return _chart_data(activity, archived)
+    return _chart_data(activity, _download(token, activity))
 
 
-def backfill(token: str, activities: list[dict], limit: int) -> int:
-    """Download the streams of up to `limit` activities we do not have yet, newest first."""
+def archive(token: str, activity: dict) -> bool:
+    """Make sure the raw archive has this activity (one request if not). True if a download was needed."""
+    if activity["id"] in raw_archive.known_ids():
+        return False
+    _chart_data(activity, _download(token, activity))
+    return True
+
+
+def backfill(token: str, activities, limit: int) -> int:
+    """Archive up to `limit` activities that are not stored yet, in the order given (newest first)."""
     done = 0
+    have = raw_archive.known_ids()
     for a in activities:
         if done >= limit:
             break
-        if cached(a["id"]) is not None:
+        if a["id"] in have:
             continue
         try:
-            get(token, a)
+            archive(token, a)
         except HttpError:
             break  # rate limited or unreachable: try again on the next refresh
         done += 1

@@ -101,6 +101,15 @@ def allow_optional(snap: dict | None = None) -> bool:
     return (snap or snapshot())["fraction"] < OPTIONAL
 
 
+def backfill_quota(snap: dict, per_refresh: int) -> int:
+    """How many older activities to download this refresh: the setting, scaled down as the day's allowance fills up.
+
+    Full speed when nothing has been used, none at the limit for extras; at least one while there is any room."""
+    if per_refresh <= 0 or snap["fraction"] >= OPTIONAL:
+        return 0
+    return max(1, round(per_refresh * (1 - snap["fraction"] / OPTIONAL)))
+
+
 def check(kind: str, snap: dict | None = None) -> dict:
     """Raise BudgetExhausted unless a request of this kind fits; otherwise return the snapshot.
 

@@ -239,7 +239,7 @@ def test_extras_run_on_the_timer_only_while_there_is_plenty_of_room(monkeypatch,
     monkeypatch.setattr(strava, "fetch", fake_fetch(seen))
     use(daily=100, when=__import__("time").time())
     run(monkeypatch, capsys, ["fetch", "--print"])
-    assert seen["optional"] is True and seen["backfill"] == 3
+    assert seen["optional"] is True and seen["backfill"] == 2       # the setting's 3, scaled down: 10% of the day is used
     use(daily=500, when=__import__("time").time())
     run(monkeypatch, capsys, ["fetch", "--print"])
     assert seen["optional"] is False
@@ -263,3 +263,11 @@ def test_a_chart_that_needs_downloading_is_refused_at_95_percent(monkeypatch, ca
     assert code == 1 and out["error"] == "budget"
     use(daily=920, when=__import__("time").time())                          # 92%: manual refreshes stop, charts still work
     assert run(monkeypatch, capsys, ["streams", "5"])[0] == 0
+
+
+def test_background_downloads_slow_down_as_the_day_fills_up():
+    q = lambda fraction, setting: ratelimit.backfill_quota({"fraction": fraction}, setting)      # noqa: E731
+    assert q(0.0, 12) == 12 and q(0.10, 12) == 9 and q(0.20, 12) == 6 and q(0.30, 12) == 3
+    assert q(0.399, 12) == 1                       # at least one while there is any room for extras
+    assert q(0.40, 12) == 0 and q(0.90, 12) == 0   # none at the limit for extras
+    assert q(0.0, 0) == 0                          # the setting turns it off

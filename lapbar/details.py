@@ -1,7 +1,7 @@
 """What was achieved on one activity, by name: records and who gave kudos.
 
 Strava's activity list only carries counts ("2 PRs, 5 kudos"). To show *which* records and *who*, two more requests
-are needed per activity, so both are made at most once and stored on disk (details/<id>.json under the cache
+are needed per activity, so both are made at most once and stored on disk (details/<id>.json under the data
 folder), and only for activities that have something to show:
 
   records  personal records (PR: 1st, 2nd or 3rd fastest of your own efforts) and top-10 places among everyone
@@ -26,7 +26,7 @@ KIND_ORDER = {"kom": 0, "pr": 1}
 
 
 def _dir():
-    return config.cache_path().parent / "details"
+    return config.adopt(config.cache_path().parent / "details", config.data_dir() / "details")
 
 
 def path_for(activity_id: int):

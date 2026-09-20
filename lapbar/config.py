@@ -1,5 +1,6 @@
 """Paths and credential loading."""
 import os
+import shutil
 from pathlib import Path
 
 
@@ -13,6 +14,23 @@ def state_dir() -> Path:
 
 def cache_path() -> Path:
     return _xdg("XDG_CACHE_HOME", ".cache") / "lapbar" / "cache.json"
+
+
+def data_dir() -> Path:
+    """Where data that is worth keeping lives (the raw archive, older years, records and kudos names).
+
+    Not the cache folder: everything in there can be thrown away and rebuilt for free, while this costs Strava
+    requests to download again. `LAPBAR_DATA_DIR` moves it, for example to another disk."""
+    override = os.environ.get("LAPBAR_DATA_DIR")
+    return Path(override) if override else _xdg("XDG_DATA_HOME", ".local/share") / "lapbar"
+
+
+def adopt(old: Path, new: Path) -> Path:
+    """Use `new`; if only `old` exists (an earlier layout kept it in the cache), move it there first."""
+    if not new.exists() and old.exists():
+        private_dir(new.parent)
+        shutil.move(str(old), str(new))
+    return new
 
 
 def user_env_path() -> Path:

@@ -5,6 +5,7 @@ terminal. Every step explains what to click and where to paste, and nothing secr
 """
 import getpass
 import re
+import shutil
 import sys
 import webbrowser
 from pathlib import Path
@@ -252,8 +253,9 @@ def _manage(name, client_id, input_fn, secret_fn, out, open_url, authorize, veri
     return 1
 
 
-def forget(out=print) -> list[str]:
-    """Remove everything lapbar stored: secrets, sign-in, config, cache."""
+def forget(out=print, everything: bool = False) -> list[str]:
+    """Remove what lapbar stored: secrets, sign-in, config, cache. The downloaded activities in the data folder
+    (raw archive, older years, records) are yours and stay unless `everything` is set."""
     removed = []
     for name in ("client_secret", "tokens"):
         try:
@@ -273,6 +275,9 @@ def forget(out=print) -> list[str]:
             f.unlink()
         series_dir.rmdir()
         removed.append("downloaded charts")
+    if everything and config.data_dir().is_dir():
+        shutil.rmtree(config.data_dir())
+        removed.append("downloaded activities")
     env = config.user_env_path()
     if env.exists():
         config.write_env_file(env, {}, remove=["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"])

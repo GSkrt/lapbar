@@ -19,7 +19,7 @@ Panel {
   // ---------------------------------------------------------------- settings
 
   readonly property int refreshIntervalSec: Math.max(60, Number(setting("refreshIntervalSec", 900)))
-  readonly property int downloadHistory: Math.max(0, Math.min(10, Number(setting("downloadHistory", 3))))  // older activities' series fetched per refresh
+  readonly property int downloadHistory: Math.max(0, Math.min(30, Number(setting("downloadHistory", 12))))  // older activities archived per refresh (scaled down as the day's allowance fills up)
   readonly property int historyYears: Math.max(0, Math.min(99, Number(setting("historyYears", 99))))   // earlier years kept for the calendar
   readonly property int ftp: Math.max(0, Math.min(600, Number(setting("ftp", 0))))   // cycling FTP in watts; 0 = unknown
   readonly property int cycleIntervalSec: Math.max(0, Number(setting("cycleIntervalSec", 6)))   // 0 = no cycling
@@ -165,6 +165,20 @@ Panel {
 
   function dayKey(y, m, d) { return y + "-" + pad2(m + 1) + "-" + pad2(d) }
 
+  // Activities whose complete time series (with GPS) is stored on this computer: marked with a dot in the calendar.
+  readonly property var archivedSet: {
+    var set = ({})
+    var ids = (root.summary && root.summary.archived_ids) ? root.summary.archived_ids : []
+    for (var i = 0; i < ids.length; i++) set[ids[i]] = true
+    return set
+  }
+
+  function dayArchived(key) {
+    var list = root.activitiesOn(key)
+    for (var i = 0; i < list.length; i++) if (root.archivedSet[list[i].id] === true) return true
+    return false
+  }
+
   // Weeks start on Monday, like Strava's own weekly totals. Empty cells pad the first and last row.
   function calendarCells(y, m) {
     var lead = (new Date(y, m, 1).getDay() + 6) % 7
@@ -177,6 +191,7 @@ Panel {
         day: d,
         key: key,
         info: root.activeDays[key] || null,
+        local: root.dayArchived(key),
         isToday: y === root.today.getFullYear() && m === root.today.getMonth() && d === root.today.getDate(),
         isFuture: new Date(y, m, d) > root.today
       })
@@ -365,6 +380,7 @@ Panel {
     if (cell.info.distance_km > 0) parts.push(cell.info.distance_km.toFixed(1) + " km")
     parts.push(fmtDuration(cell.info.moving_time_s))
     if (cell.info.elevation_m > 0) parts.push(root.fmtClimb(cell.info.elevation_m))
+    if (cell.local) parts.push("full data stored")
     var names = []
     for (var i = 0; i < cell.info.families.length; i++) names.push(root.familyLabels[cell.info.families[i]] || cell.info.families[i])
     return head + " · " + names.join(" + ") + " · " + parts.join(" · ")
@@ -643,6 +659,14 @@ Panel {
     var line = "Strava requests today: " + root.budget.daily_used + " of " + root.budget.daily_limit
     if (root.budget.auto_paused) line += " \u00b7 auto-refresh paused, manual refresh still works"
     return line
+  }
+
+  // How far the background download of every activity's full time series has got.
+  readonly property string archiveLine: {
+    var a = root.summary ? root.summary.archive : null
+    if (!a || a.total === 0) return ""
+    if (a.known >= a.total) return "\u25cf All " + a.total + " activities are stored on this computer"
+    return "\u25cf Full time series stored: " + a.stored + " of " + a.total + " activities" + (root.downloadHistory > 0 ? " \u00b7 downloading in the background" : "")
   }
 
   readonly property string barTooltip: {
@@ -1923,6 +1947,16 @@ Panel {
         }
 
         Text {
+          visible: root.archiveLine !== ""
+          width: parent.width
+          wrapMode: Text.WordWrap
+          text: root.archiveLine
+          color: root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+        }
+
+        Text {
           visible: root.budgetLine !== ""
           width: parent.width
           wrapMode: Text.WordWrap
@@ -2375,6 +2409,17 @@ Panel {
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.bodySmall
                   font.bold: cell.alpha > 0
+                }
+
+                Rectangle {                       // a dot: the full time series (with GPS) of a ride this day is stored here
+                  visible: cell.modelData.day > 0 && cell.modelData.local === true
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: Style.space(2)
+                  width: Style.space(4)
+                  height: Style.space(4)
+                  radius: width / 2
+                  color: cell.alpha >= 0.6 ? Color.background : Color.accent
                 }
 
                 MouseArea {

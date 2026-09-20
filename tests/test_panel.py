@@ -74,3 +74,10 @@ def test_the_calendar_pages_back_to_the_earliest_stored_month_and_reads_older_ye
     assert "shiftMonth(-12)" in PANEL and "shiftMonth(12)" in PANEL                 # jump a year at a time
     assert '"history", String(year)' in PANEL and "onViewYearChanged" in PANEL      # an older year is read when the calendar reaches it
     assert "activitiesOfYear(parseInt(key.slice(0, 4)))" in PANEL
+
+
+def test_the_calendar_marks_days_whose_full_data_is_stored_and_shows_the_progress():
+    assert "archivedSet" in PANEL and "local: root.dayArchived(key)" in PANEL
+    assert "cell.modelData.local === true" in PANEL and '"full data stored"' in PANEL   # the dot and its tooltip
+    assert "readonly property string archiveLine" in PANEL and "Full time series stored: " in PANEL
+    assert 'setting("downloadHistory", 12)' in PANEL

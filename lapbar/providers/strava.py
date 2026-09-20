@@ -1,8 +1,9 @@
 """Strava provider: returns the shared summary dict (see README)."""
+import itertools
 import math
 from datetime import datetime, timedelta, timezone
 
-from .. import auth, details, fitness, history, kudos, sports, streams
+from .. import auth, details, fitness, history, kudos, raw, sports, streams
 from ..http import HttpError, request_json
 
 ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities"
@@ -311,11 +312,13 @@ def fetch(
     listed = [_listed(a) for a in year]  # newest first
     events, kudos_seen, kudoers = kudos.track(
         token_source.access_token(), listed, previous, seed_limit=kudos.SEED_LIMIT if optional else 0)
-    if backfill and optional:
-        try:  # download older activities' series a few at a time; failures just retry next refresh
-            streams.backfill(token_source.access_token(), listed, backfill)
+    total = len(listed) + sum(y.get("count", 0) for y in history.index()["years"].values())
+    if backfill and optional and len(raw.known_ids()) < total:
+        try:  # archive older activities' full series a few at a time (this year first, then the older years)
+            streams.backfill(token_source.access_token(), itertools.chain(listed, history.iter_activities()), backfill)
         except OSError:
             pass
+    stored, known = raw.archived_ids(), raw.known_ids()
 
     return {
         "provider": "strava",
@@ -327,6 +330,8 @@ def fetch(
         "year": _with_by_sport(year),
         "days": days,                     # every stored year, for the calendar
         "history": history.summary(days),
+        "archive": {"stored": len(stored), "known": len(known), "total": total},   # progress of the full-series archive
+        "archived_ids": sorted(stored),                                            # for the calendar's dots
         "load": _load(fetched, now),
         "fitness": fitness.build(fetched, now.date(), ftp=ftp),
         "activities": listed,

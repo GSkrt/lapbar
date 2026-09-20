@@ -1,7 +1,7 @@
 """Older years of activities, for the calendar.
 
 The refresh only looks at this year (and a little before it). Earlier years are downloaded once, one request per
-200 activities of that year, and stored under the cache folder:
+200 activities of that year, and stored under the data folder (~/.local/share/lapbar):
 
   history/index.json   {"years": {"2024": {"fetched": ..., "count": 88, "days": {date: totals}}}, "complete": bool}
                        small: the per-day totals of every stored year, which is all the calendar needs to draw itself
@@ -20,7 +20,7 @@ DATA_VERSION = 1
 
 
 def _dir():
-    return config.cache_path().parent / "history"
+    return config.adopt(config.cache_path().parent / "history", config.data_dir() / "history")
 
 
 def _write(path, data) -> None:
@@ -70,6 +70,12 @@ def find(activity_id: int) -> dict | None:
             if a.get("id") == activity_id:
                 return a
     return None
+
+
+def iter_activities():
+    """Every stored older activity, newest year first; a year is only read when the caller gets to it."""
+    for year in sorted((int(y) for y, v in index()["years"].items() if v.get("count")), reverse=True):
+        yield from year_activities(year)
 
 
 def merged_days() -> dict:

@@ -113,8 +113,12 @@ they change. LapBar itself is free and asks for nothing else.
 | Client Secret, sign-in tokens | your **system keyring** (GNOME Keyring / libsecret) | encrypted by the keyring, unlocked with your login |
 | ... if there is no keyring | `~/.local/state/lapbar/secrets.json` | mode 600 in a mode 700 folder; the setup tells you when this is used |
 | Client ID (not secret) | `~/.config/lapbar/env` | mode 600 |
-| Cached activities (route shapes, names of people who gave kudos) | `~/.cache/lapbar/cache.json` | mode 600 |
-| Downloaded time series (heart rate, power, speed... per km) | `~/.cache/lapbar/streams/` | mode 600 in a mode 700 folder |
+| Cached summary for the widget (this year's activities, route shapes, names of people who gave kudos) | `~/.cache/lapbar/cache.json` | mode 600 |
+| Chart-ready time series (shrunk copies, rebuilt from the archive without a request) | `~/.cache/lapbar/streams/` | mode 600 in a mode 700 folder |
+| **Your data, worth keeping:** the complete time series with GPS, older years, records and kudos names | `~/.local/share/lapbar/` (`raw/`, `history/`, `details/`) | mode 600 in mode 700 folders; **contains your routes**, so keep it private |
+
+The cache can always be deleted: it is rebuilt for free. The data folder cannot be rebuilt without asking Strava
+again (one request per activity), so it is not deleted by "Reset account" (`lapbar reset --all` removes it).
 
 Secrets are never written to the cache, to logs, or to the terminal. Older plain-text files from earlier
 versions are moved into the keyring automatically and then deleted. Set `LAPBAR_NO_KEYRING=1` to use the
@@ -151,10 +155,19 @@ up to date, and the own-app mode described above will keep working either way.
   kudos and PRs, and the load comparison.
 - **Calendar history.** The calendar pages back to your first Strava activity, with « » to jump a year. Earlier
   years are downloaded once (one request per 200 activities of that year; a couple of years per refresh, so the
-  first sync never touches the request allowance) and stored under `~/.cache/lapbar/history/`. The
+  first sync never touches the request allowance) and stored under `~/.local/share/lapbar/history/`. The
   `historyYears` setting says how many years back to keep: `0` is this year only, `99` (default) is everything
   Strava has. A stored year is not downloaded again, so later edits on Strava do not reach it; to redo them run
   `lapbar history --sync --refresh`. Clicking an older day opens that ride like any other.
+- **Full data, kept for you.** LapBar stores the complete second-by-second data of every activity (GPS
+  position, altitude, speed, heart rate, power, cadence, temperature, grade), compressed, in
+  `~/.local/share/lapbar/raw/<year>/<activity id>.json.gz` (about 60 KB per hour of activity; `LAPBAR_DATA_DIR`
+  moves it). The newest ride is stored automatically and older ones in the background, newest first, a few per
+  refresh: the number set by `downloadHistory` is scaled down as the day's request allowance fills up and stops at
+  40% of it. A dot in the calendar marks days with a stored ride, and a line under the totals shows how far it
+  has got. `lapbar archive --limit 100` does a batch right now. Your charts are built from these files, so they
+  never need a second download. This folder is yours and is not a cache: "Reset account" leaves it alone
+  (`lapbar reset --all` removes it too). It is the base for your own analysis, for example in DuckDB.
 - **Records and kudos** sit right under the ride's description, in a section that folds like the calendar (it
   starts folded when the list is long, so the popup never outgrows the screen). A **medal** marks a personal record
   (PR: your 1st, 2nd or 3rd fastest time on a segment, or a run's best efforts such as your fastest 5k), a **cup** a
@@ -254,11 +267,13 @@ charts can never affect the bar.
 - **No map** (yet). Indoor activities and ones without distance use elapsed time as the x axis instead.
 - Colours follow your bar theme; each measure always keeps its own colour.
 
-Time series are downloaded **once** and stored in `~/.cache/lapbar/streams/` (about 60 KB per activity, mode
-600), so reopening a chart never asks Strava again. The newest ride is fetched automatically; older
-activities are added a few per refresh, newest first, until your history is complete (`downloadHistory`, 0
-turns it off; charts you open are downloaded on demand either way). Each download is one Strava request.
-Stored data is re-downloaded once if a later version changes how it is processed.
+Time series are downloaded **once**. The full answer from Strava (GPS included) is kept in
+`~/.local/share/lapbar/raw/` and a shrunk copy for the charts in `~/.cache/lapbar/streams/` (about 60 KB per
+hour of activity in the archive). Reopening a chart never asks Strava again, and if the chart copy is deleted it is
+rebuilt from the archive. The newest ride is fetched automatically; older activities are added in the background
+(`downloadHistory` per refresh, scaled down as the day's allowance fills up; 0 turns it off; charts you open are
+downloaded on demand either way). Each download is one Strava request. Chart copies are made again, without
+any request, if a later version changes how they are processed.
 
 ## Summary shape
 
@@ -315,6 +330,7 @@ to run the real `secret-tool` fails the test. Run them with a venv that has `pyt
     lapbar charts <activity id>          # downloads once if needed, then opens the window
     lapbar streams <activity id> --refresh   # download the series again
     lapbar details <activity id>         # the ride's records and kudos names, as the popup asks for them (JSON)
+    lapbar archive --limit 100           # store the full data (with GPS) of 100 more activities now
     lapbar history --sync                # download the older years for the calendar now (--refresh: again, --years N)
 
 Its plotting logic lives in `charts/logic.js` (ticks, cursor lookup, zoom, formatting) and is unit-tested with

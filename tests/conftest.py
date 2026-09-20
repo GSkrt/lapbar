@@ -66,7 +66,7 @@ def keyring(monkeypatch, tmp_path):
 
     monkeypatch.setattr(subprocess, "run", guarded)
     # Never read or write the developer's real config, state, or cache either.
-    for var in ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME"):
+    for var in ("XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"):
         monkeypatch.setenv(var, str(tmp_path / var.lower()))
     monkeypatch.chdir(tmp_path)
     for name in ("STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "STRAVA_REFRESH_TOKEN"):
