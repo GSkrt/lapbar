@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import datetime
 
-from . import auth, charts, config, details, export, fitness, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, vault
+from . import auth, charts, config, details, export, fitness, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -106,7 +106,7 @@ def _activity_for(activity_id: int, token: str) -> dict:
     older = history.find(activity_id)
     if older is not None:
         return older
-    return strava._listed(request_json(f"https://www.strava.com/api/v3/activities/{activity_id}", token=token))
+    return strava._listed(request_json(stravaapi.url("activity_detail").format(id=activity_id), token=token))
 
 
 def _series_data(args):
@@ -228,6 +228,17 @@ def cmd_prefs(args) -> int:
         print(json.dumps({"error": "bad_value", "message": f"That is not a valid date (use YYYY-MM-DD): {e}"}))
         return 1
     print(json.dumps({"prefs": current}))
+    return 0
+
+
+def cmd_api(args) -> int:
+    """Which Strava API version LapBar targets and every call it makes."""
+    if args.json:
+        print(json.dumps({"api": stravaapi.API_VERSION, "spec": stravaapi.API_SPEC_VERSION, "base": stravaapi.BASE,
+                          "checked": stravaapi.SPEC_CHECKED_ON, "migration": stravaapi.BASE_URL_MIGRATION,
+                          "rate_limit_headers": stravaapi.RATE_LIMIT_HEADERS, "calls": stravaapi.CALLS}))
+    else:
+        print("\n".join(stravaapi.summary_lines()))
     return 0
 
 
@@ -355,6 +366,9 @@ def main(argv: list[str] | None = None) -> None:
     prefs_p.add_argument("--continuous", choices=("on", "off"), help="update the database after every refresh")
     prefs_p.add_argument("--spatial", choices=("on", "off"), help="add real geometry (downloads DuckDB's spatial extension once)")
     prefs_p.set_defaults(func=cmd_prefs)
+    api_p = sub.add_parser("api", help="the Strava API version LapBar targets and every call it makes")
+    api_p.add_argument("--json", action="store_true")
+    api_p.set_defaults(func=cmd_api)
     pick_p = sub.add_parser("pick-folder", help="open the desktop's folder chooser and print the choice (JSON)")
     pick_p.add_argument("--start", default=None, metavar="DIR", help="folder to open at")
     pick_p.add_argument("--title", default="Choose a folder")

@@ -15,11 +15,11 @@ import json
 import os
 from datetime import datetime, timezone
 
-from . import config, fetchlog
+from . import config, fetchlog, stravaapi
 
 DATA_VERSION = 1
 KEYS = "time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,watts,temp,grade_smooth,moving"
-URL = "https://www.strava.com/api/v3/activities/{id}/streams?keys=" + KEYS + "&key_by_type=true"
+URL = stravaapi.url("activity_streams") + "?keys=" + KEYS + "&key_by_type=true"
 
 
 def _dir():

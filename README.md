@@ -108,6 +108,32 @@ they change. LapBar itself is free and asks for nothing else.
   (100 and 1,000 for reads). LapBar uses roughly 2-5 requests per refresh, every 15 minutes by default.
 - **Nobody else sees your data.** LapBar talks only to `strava.com` from your own machine.
 
+## Which Strava API calls LapBar makes
+
+LapBar targets the **Strava API v3** (the spec's own version is 3.0.0; last compared with it on
+2026-09-20) at `https://www.strava.com/api/v3`. It only **reads**: it never creates, changes or deletes anything on
+Strava. It asks for the permissions `read` and `activity:read_all`. Every request it makes:
+
+| Method | Path | What for | When |
+|---|---|---|---|
+| GET | `/api/v3/athlete/activities` | the activity list: totals, the calendar, the latest activity, fitness | every refresh (one request per 200 activities since 1 January), and once per older year when history is downloaded |
+| GET | `/api/v3/activities/{id}` | records (PRs and top-10 places) by name, and one activity that is not in the list | once per activity that has records, and when a chart is opened for an activity that is not stored |
+| GET | `/api/v3/activities/{id}/streams` | the complete second-by-second data (GPS, altitude, speed, heart rate, power, cadence, ...) | once per activity: the newest ride, the background archive, and charts you open |
+| GET | `/api/v3/activities/{id}/kudos` | who gave kudos, for the notification and the popup | for the newest activities when their kudos count changes, and when you open an older ride |
+| GET | `/api/v3/athlete` | to show which Strava account was signed in | during setup only |
+| POST | `/oauth/token` | signing in (authorization_code) and renewing the access token (refresh_token, about every 6 hours) | at sign-in, and when the access token has expired |
+| BROWSER | `/oauth/authorize` | the page where you allow LapBar to read your activities (opened in your browser, not requested by LapBar) | at sign-in |
+
+The request allowance is tracked from the `X-ReadRateLimit-Usage` and `X-ReadRateLimit-Limit` response headers (see
+"Refresh interval and Strava's request allowance"). The address, the version and this list live in one file,
+`lapbar/stravaapi.py`; `lapbar api` prints them, and a test keeps that file, the code and this table in step.
+
+Strava can change an API without changing its version number, so `scripts/check_strava_api.py` compares these calls with
+Strava's published spec (they must still exist, not be deprecated, and take the parameters LapBar sends), and a monthly
+GitHub workflow runs it. **Announced:** Strava's changelog (2026-06-01) says the base URL will change from
+`https://www.strava.com/api/v3` to `https://api-v3.strava.com`, available from 2027-01-04. It does not say when the old address
+stops working, so this is one to check as that date approaches.
+
 ## Where your data and secrets live
 
 | What | Where | Protection |

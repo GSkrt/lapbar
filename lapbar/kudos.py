@@ -6,9 +6,10 @@ State lives in the summary itself (and so in the cache):
 `seen` only advances for activities we processed successfully, so a failed request retries next time
 instead of silently losing the notification.
 """
+from . import stravaapi
 from .http import HttpError, request_json
 
-KUDOS_URL = "https://www.strava.com/api/v3/activities/{id}/kudos?per_page=200"
+KUDOS_URL = stravaapi.url("activity_kudos") + "?per_page=200"
 RECENT = 10      # only the newest activities are watched for new kudos
 SEED_LIMIT = 5   # first-time name lookups per fetch, so the very first run stays cheap
 

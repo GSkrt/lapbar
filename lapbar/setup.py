@@ -10,13 +10,13 @@ import sys
 import webbrowser
 from pathlib import Path
 
-from . import auth, config, vault
+from . import auth, config, stravaapi, vault
 from .http import HttpError, request_json
 
 API_SETTINGS_URL = "https://www.strava.com/settings/api"
 DOCS_URL = "https://developers.strava.com/docs/getting-started/"
 ICON = Path(__file__).resolve().parent.parent / "assets" / "icon.png"
-ATHLETE_URL = "https://www.strava.com/api/v3/athlete"
+ATHLETE_URL = stravaapi.url("athlete")
 ID_RE = re.compile(r"^\d{3,9}$")
 SECRET_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_ATTEMPTS = 3

@@ -1,0 +1,18 @@
+name: strava-api
+
+# Strava can change its API under a fixed version number. Once a month (and on demand) compare the calls LapBar
+# makes with Strava's published spec; a failed run means something to look at, not a broken release.
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python scripts/check_strava_api.py

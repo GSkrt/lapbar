@@ -286,6 +286,10 @@ start with those, since that is where the users are. Tasks:
       basemap, but it is not planned.
 - [ ] **One-click sign-in**: a small Cloudflare Worker that holds the client secret and does the OAuth exchange,
       then apply to Strava's Developer Program. Own-app mode must keep working. Details are in the README's plan.
+- [ ] **Strava base URL change** (changelog, 2026-06-01): `https://www.strava.com/api/v3` becomes `https://api-v3.strava.com`,
+      available from 2027-01-04. Unknown: when the old address stops, whether paths and the OAuth endpoints move. The
+      address is one constant in `lapbar/stravaapi.py`; the monthly workflow reminds from 90 days before. Also new in
+      the API (2026): a deauthorization endpoint (Reset account could revoke the token on Strava, not just forget it).
 - [ ] Before that application: re-read the API Agreement's wording on storing, exporting and reusing athlete data
       (the raw archive, the data folder and the export features), and decide what to describe in the README.
 - [ ] **Strava Developer Program** application once there is a public release and some use.

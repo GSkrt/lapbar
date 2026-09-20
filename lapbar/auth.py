@@ -5,17 +5,18 @@ with the user's own client id/secret (bring-your-own-app mode). A Worker-backed
 source can be added later without touching the provider.
 """
 import json
+import re
 import time
 import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Protocol
 
-from . import config, vault
+from . import config, stravaapi, vault
 from .http import request_json
 
-TOKEN_URL = "https://www.strava.com/oauth/token"
-AUTHORIZE_URL = "https://www.strava.com/oauth/authorize"
+TOKEN_URL = stravaapi.url("oauth_token")
+AUTHORIZE_URL = stravaapi.url("oauth_authorize")
 REQUIRED_SCOPE = "activity:read_all"
 CALLBACK_PORT = 8734
 
@@ -145,7 +146,7 @@ def authorize(client_id: str, client_secret: str, *, open_browser: bool = True,
 
     if "error" in result:
         raise RuntimeError(f"Strava authorization failed: {result['error']}")
-    if REQUIRED_SCOPE not in result.get("scope", "").split(","):
+    if REQUIRED_SCOPE not in granted_scopes(result.get("scope", "")):
         raise RuntimeError(f"Missing '{REQUIRED_SCOPE}' permission. Re-run and leave every box ticked.")
     resp = request_json(TOKEN_URL, form={
         "client_id": client_id,
@@ -155,6 +156,12 @@ def authorize(client_id: str, client_secret: str, *, open_browser: bool = True,
     })
     _save_tokens(resp)
     out("Signed in.")
+
+
+def granted_scopes(text: str) -> set[str]:
+    """The scopes in a `scope` value: Strava has sent them comma-separated, and its changelog (2026-04-23) describes
+    the token response's list as space-delimited, so both are accepted."""
+    return {s for s in re.split(r"[,\s]+", text or "") if s}
 
 
 def has_tokens() -> bool:

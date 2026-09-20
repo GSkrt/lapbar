@@ -16,10 +16,10 @@ after an upload and kudos keep arriving.
 import json
 import os
 
-from . import config, kudos
+from . import config, kudos, stravaapi
 from .http import request_json
 
-DETAIL_URL = "https://www.strava.com/api/v3/activities/{id}?include_all_efforts=true"
+DETAIL_URL = stravaapi.url("activity_detail") + "?include_all_efforts=true"
 DATA_VERSION = 1
 MAX_RECORDS = 40
 KIND_ORDER = {"kom": 0, "pr": 1}

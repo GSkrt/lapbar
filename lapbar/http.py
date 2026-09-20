@@ -1,4 +1,4 @@
-"""Minimal JSON-over-HTTP helper (stdlib only)."""
+"""Minimal JSON-over-HTTP helper (stdlib only). The Strava API version, address and every call are in stravaapi.py."""
 import json
 import urllib.error
 import urllib.parse

@@ -3,10 +3,10 @@ import itertools
 import math
 from datetime import datetime, timedelta, timezone
 
-from .. import auth, details, fitness, history, kudos, raw, sports, streams
+from .. import auth, details, fitness, history, kudos, raw, sports, stravaapi, streams
 from ..http import HttpError, request_json
 
-ACTIVITIES_URL = "https://www.strava.com/api/v3/athlete/activities"
+ACTIVITIES_URL = stravaapi.url("athlete_activities")
 PAGE_SIZE = 200
 ROUTE_POINTS = 150
 LIST_ROUTE_POINTS = 60
