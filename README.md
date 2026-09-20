@@ -200,8 +200,9 @@ that length has a weighted (normalised) power close to it. So LapBar:
 
 That is all: no extra requests to Strava, and no curve fitting. It is a conservative ballpark, usually a little
 under a proper test, because not every long ride is an all-out effort. The best-20-minute-power method (95% of it)
-needs each ride's second-by-second data, which does not fit the request allowance across dozens of rides. The
-button only fills in the value in the menu; nothing changes until you press Save, and your own number always wins.
+needs each ride's second-by-second data, which does not fit the request allowance across dozens of rides. Clicking
+the button sets your FTP to the estimate and recalculates at once; use the stepper (or **Clear FTP**) to change it
+afterwards. The estimate is never applied on its own, only when you click.
 
 ### Refresh interval and Strava's request allowance
 

@@ -29,10 +29,11 @@ def test_the_interval_can_go_down_to_a_minute_and_the_menu_offers_it():
     assert "{ sec: 60," in PANEL and "refreshIntervalSec" in PANEL and '"bar", "set", root.moduleName' in PANEL
 
 
-def test_the_menu_can_set_the_ftp_and_offers_an_estimate_without_applying_it():
+def test_the_menu_can_set_the_ftp_and_the_estimate_button_applies_it_when_clicked():
     assert 'action: "ftp"' in PANEL and "Estimate from my rides" in PANEL
-    assert 'root.ftpDraft = root.ftpEstimate.watts' in PANEL           # the button only fills the draft
-    assert PANEL.count("root.setFtp(") == 2                             # only Save and Clear write the setting
+    assert 'onClicked: root.setFtp(root.ftpEstimate.watts)' in PANEL   # the button saves the estimate itself
+    assert 'root.ftpDraft = root.ftpEstimate' not in PANEL
+    assert PANEL.count("root.setFtp(") == 3                             # Save, Clear and the estimate button; only clicks write it
     assert "ftp_estimate" in PANEL
 
 

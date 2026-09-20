@@ -1094,7 +1094,7 @@ Panel {
                     font.pixelSize: Style.font.body
                   }
                   MouseArea { id: estMouse; anchors.fill: parent; hoverEnabled: true; enabled: !!root.ftpEstimate
-                              cursorShape: Qt.PointingHandCursor; onClicked: root.ftpDraft = root.ftpEstimate.watts }
+                              cursorShape: Qt.PointingHandCursor; onClicked: root.setFtp(root.ftpEstimate.watts) }
                 }
 
                 Text {
@@ -1102,7 +1102,7 @@ Panel {
                   width: parent.width - Style.space(16)
                   wrapMode: Text.WordWrap
                   text: root.ftpEstimate
-                    ? "The highest weighted power in your " + root.ftpEstimate.rides + " power rides of 40 minutes or more. A ballpark: for an exact figure, do an FTP test."
+                    ? "Sets your FTP to the highest weighted power in your " + root.ftpEstimate.rides + " power rides of 40 minutes or more. A ballpark: for an exact figure, do an FTP test. You can adjust it afterwards."
                     : "Needs at least 5 rides of 40 minutes or more recorded with a power meter. Not enough of them yet: type your FTP if you know it."
                   color: root.dim
                   font.family: root.fontFamily
