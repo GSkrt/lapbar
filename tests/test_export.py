@@ -69,7 +69,7 @@ def test_a_missing_duckdb_is_reported_with_the_install_commands(monkeypatch, cap
     def missing():
         raise export.DuckdbMissing(export.INSTALL_HINT)
     monkeypatch.setattr(export, "_import", missing)
-    assert export.availability() == {"available": False, "version": None, "install": export.INSTALL_COMMANDS}
+    assert export.availability() == {"available": False, "version": None, "install": export.INSTALL_COMMANDS, "spatial": False}
     assert "omarchy pkg add python-duckdb" in export.INSTALL_HINT and "sudo pacman -S python-duckdb" in export.INSTALL_HINT
     with pytest.raises(SystemExit):
         cli.main(["export", "--path", "/tmp/never.duckdb"])
@@ -216,7 +216,7 @@ def test_the_default_path_is_in_the_data_folder_and_a_chosen_path_is_used(data, 
 # ---- preferences
 
 def test_preferences_default_validate_and_are_private():
-    assert prefs.load() == {"history_from": None, "export_path": None, "export_continuous": False}
+    assert prefs.load() == {"history_from": None, "export_path": None, "export_continuous": False, "export_spatial": False}
     assert prefs.update(history_from="2019-04-01")["history_from"] == "2019-04-01"
     assert prefs.update(history_from=None)["history_from"] is None
     with pytest.raises(ValueError):
@@ -236,8 +236,8 @@ def test_prefs_command_sets_and_clears_values(capsys):
         except SystemExit as e:
             code = e.code or 0
         return code, json.loads(capsys.readouterr().out)
-    assert run("--history-from", "2020-01-01", "--continuous", "on", "--export-path", "~/x.duckdb")[1]["prefs"] == {
-        "history_from": "2020-01-01", "export_path": "~/x.duckdb", "export_continuous": True}
+    assert run("--history-from", "2020-01-01", "--continuous", "on", "--export-path", "~/x.duckdb", "--spatial", "on")[1]["prefs"] == {
+        "history_from": "2020-01-01", "export_path": "~/x.duckdb", "export_continuous": True, "export_spatial": True}
     assert run("--history-from", "none")[1]["prefs"]["history_from"] is None
     code, out = run("--history-from", "nonsense")
     assert code == 1 and out["error"] == "bad_value"
@@ -341,3 +341,92 @@ def test_the_readme_documents_every_table_and_the_install_command():
         assert f"`{t['table']}`" in readme, t["table"]
     assert export.INSTALL_COMMANDS[0] in readme and export.INSTALL_COMMANDS[1] in readme
     assert "Fetch history back to" in readme and "Keep it up to date" in readme
+
+
+# ---- real geometry (DuckDB's spatial extension) is downloaded only when asked for
+
+class FakeCon:
+    """Answers `LOAD spatial` like a DuckDB that does not have the extension, and records what was run."""
+    def __init__(self, installable=True):
+        self.ran, self.installed, self.installable = [], False, installable
+
+    def execute(self, sql, *a):
+        self.ran.append(sql)
+        if sql == "INSTALL spatial":
+            if not self.installable:
+                raise RuntimeError("IO Error: Failed to download extension: no network\nmore")
+            self.installed = True
+        if sql == "LOAD spatial" and not self.installed:
+            raise RuntimeError("extension not found")
+        return self
+
+    def fetchall(self):
+        return [(0, "activity_id")]
+
+
+def test_the_spatial_extension_is_never_downloaded_unless_asked():
+    con = FakeCon()
+    assert export._add_geometry(con, install=False) == (False, None)
+    assert "INSTALL spatial" not in con.ran
+
+
+def test_asking_for_it_installs_it_once_and_adds_the_geometry():
+    con = FakeCon()
+    assert export._add_geometry(con, install=True) == (True, None)
+    assert con.ran[:3] == ["LOAD spatial", "INSTALL spatial", "LOAD spatial"]
+    assert any(s.startswith("ALTER TABLE routes ADD COLUMN geom GEOMETRY") for s in con.ran)
+    assert any("ST_GeomFromText(wkt)" in s for s in con.ran)
+
+
+def test_a_failed_download_does_not_fail_the_export_and_says_why():
+    added, problem = export._add_geometry(FakeCon(installable=False), install=True)
+    assert added is False and "spatial extension" in problem and "wkt column" in problem and "online" in problem
+
+
+@needs_duckdb
+def test_without_the_extension_the_export_still_works_and_reports_it(data, tmp_path, monkeypatch):
+    monkeypatch.setattr(export, "_add_geometry", lambda con, install=False: (False, "offline"))
+    result = export.sync(tmp_path / "db" / "g.duckdb", spatial=True)
+    assert result["spatial"] is False and result["spatial_problem"] == "offline"
+
+
+@pytest.mark.skipif(not export.spatial_installed(), reason="DuckDB's spatial extension is not installed on this machine")
+def test_with_the_extension_routes_get_real_geometry(data, tmp_path):
+    path = tmp_path / "db" / "s.duckdb"
+    assert export.sync(path)["spatial"] is True
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("LOAD spatial")
+        assert con.execute("SELECT count(*) FROM routes WHERE geom IS NOT NULL").fetchone()[0] == 1
+        assert con.execute("SELECT ST_GeometryType(geom) FROM routes").fetchone()[0] == "LINESTRING"
+        assert con.execute("SELECT ST_Length(geom) > 0 FROM routes").fetchone()[0] is True
+    finally:
+        con.close()
+
+
+def haversine_metres(points):
+    import math
+    total = 0.0
+    for (la1, lo1), (la2, lo2) in zip(points, points[1:]):
+        p1, p2 = math.radians(la1), math.radians(la2)
+        h = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lo2 - lo1) / 2) ** 2
+        total += 2 * 6371008.8 * math.asin(math.sqrt(h))
+    return total
+
+
+@pytest.mark.skipif(not export.spatial_installed(), reason="DuckDB's spatial extension is not installed on this machine")
+def test_the_documented_length_example_gives_about_the_right_distance(data, tmp_path):
+    """DuckDB's spheroid functions want lat/lon while geometries are lon/lat: without the flip the answer is far off."""
+    path = tmp_path / "db" / "len.duckdb"
+    export.sync(path)
+    truth = haversine_metres(streams_with_gps()["latlng"]["data"])
+    example = dict(export.EXAMPLES)["Route length in metres (needs the spatial extension)"]
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("LOAD spatial")
+        metres = con.execute(example.split("INSTALL spatial; LOAD spatial;\n", 1)[1].replace("LIMIT 10", "LIMIT 1")).fetchone()[1]
+        unflipped = con.execute("SELECT ST_Length_Spheroid(geom) FROM routes").fetchone()[0]
+    finally:
+        con.close()
+    assert metres == pytest.approx(truth, rel=0.02)
+    assert unflipped != pytest.approx(truth, rel=0.1)                    # the trap the example avoids

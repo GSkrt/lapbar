@@ -4,6 +4,7 @@ command line and the data window.
   history_from       earliest day to fetch and show ("YYYY-MM-DD"), or None for all of Strava's history
   export_path        where the DuckDB database goes (None: the default under the data folder)
   export_continuous  append new activities to the database after every refresh
+  export_spatial     download DuckDB's spatial extension (once) and add real geometry to the database
 
 Stored in ~/.config/lapbar/prefs.json (mode 600).
 """
@@ -14,7 +15,7 @@ from pathlib import Path
 
 from . import config
 
-DEFAULTS = {"history_from": None, "export_path": None, "export_continuous": False}
+DEFAULTS = {"history_from": None, "export_path": None, "export_continuous": False, "export_spatial": False}
 
 
 def _path():

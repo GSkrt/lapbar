@@ -220,6 +220,8 @@ def cmd_prefs(args) -> int:
         changes["export_path"] = args.export_path
     if args.continuous is not None:
         changes["export_continuous"] = args.continuous == "on"
+    if args.spatial is not None:
+        changes["export_spatial"] = args.spatial == "on"
     try:
         current = prefs.update(**changes) if changes else prefs.load()
     except ValueError as e:
@@ -232,7 +234,7 @@ def cmd_prefs(args) -> int:
 def cmd_export(args) -> int:
     """Create or update the DuckDB database from everything stored."""
     try:
-        result = export.sync(args.path, rebuild=args.rebuild)
+        result = export.sync(args.path, rebuild=args.rebuild, spatial=True if args.spatial else None)
     except export.DuckdbMissing as e:
         print(json.dumps({"error": "duckdb_missing", "message": str(e), "install": export.INSTALL_COMMANDS}))
         return 1
@@ -340,10 +342,12 @@ def main(argv: list[str] | None = None) -> None:
     prefs_p.add_argument("--history-from", metavar="YYYY-MM-DD|none", help="earliest day to fetch and show")
     prefs_p.add_argument("--export-path", metavar="FILE", help="where the DuckDB database goes")
     prefs_p.add_argument("--continuous", choices=("on", "off"), help="update the database after every refresh")
+    prefs_p.add_argument("--spatial", choices=("on", "off"), help="add real geometry (downloads DuckDB's spatial extension once)")
     prefs_p.set_defaults(func=cmd_prefs)
     export_p = sub.add_parser("export", help="export everything stored into a DuckDB database")
     export_p.add_argument("--path", metavar="FILE", help="database file (default: the saved path)")
     export_p.add_argument("--rebuild", action="store_true", help="build a fresh file instead of updating")
+    export_p.add_argument("--spatial", action="store_true", help="download DuckDB's spatial extension if needed and add real geometry")
     export_p.set_defaults(func=cmd_export)
     charts_p = sub.add_parser("charts", help="open the chart window for an activity")
     charts_p.add_argument("activity", type=int)

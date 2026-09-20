@@ -84,7 +84,7 @@ SCHEMA = [
         ("min_lon", "DOUBLE", "west edge"),
         ("max_lon", "DOUBLE", "east edge"),
         ("wkt", "VARCHAR", "the route as a WKT LINESTRING(lon lat, ...), thinned to at most 400 points; works with ST_GeomFromText"),
-        ("geom", "GEOMETRY", "optional: the same line as a geometry, added only when DuckDB's spatial extension is installed (INSTALL spatial)"),
+        ("geom", "GEOMETRY", "optional: the same line as a geometry (x = longitude, y = latitude, WGS 84 / EPSG:4326), only when DuckDB's spatial extension is installed"),
     ]},
     {"table": "route_cells", "about": "Each route as the map cells (about 100 m) it passes through, so overlaps are a plain join, no extension needed.", "columns": [
         ("activity_id", "BIGINT", "-> routes.activity_id"),
@@ -98,8 +98,8 @@ SCHEMA = [
         ("activity_id", "BIGINT", "-> activities.id"),
         ("t", "INTEGER", "seconds since the activity started"),
         ("distance_m", "DOUBLE", "distance so far, metres"),
-        ("lat", "DOUBLE", "latitude, degrees (NULL indoors or without GPS)"),
-        ("lon", "DOUBLE", "longitude, degrees"),
+        ("lat", "DOUBLE", "latitude, degrees, WGS 84 (NULL indoors or without GPS)"),
+        ("lon", "DOUBLE", "longitude, degrees, WGS 84"),
         ("altitude_m", "DOUBLE", "altitude, metres"),
         ("speed_ms", "DOUBLE", "smoothed speed, metres per second"),
         ("heartrate", "INTEGER", "bpm"),
@@ -146,6 +146,9 @@ RELATIONSHIPS = [
      "about": "every second of the activity, with lat and lon on each row"},
     {"link": "activities.id  <-  records.activity_id, kudos.activity_id",
      "about": "records by name, and who gave kudos"},
+    {"link": "coordinates",
+     "about": "WGS 84 degrees, as Strava gives them (it sends [lat, lon]). Geometries are stored lon/lat (x = lon, y = lat); "
+              "DuckDB's *_Spheroid functions expect lat/lon, so wrap geometries in ST_FlipCoordinates for them"},
 ]
 
 EXAMPLES = [
@@ -162,7 +165,11 @@ EXAMPLES = [
     ("Rides that start near a place", "SELECT a.start_local, a.name, a.distance_km\n"
                                       "FROM routes r JOIN activities a ON a.id = r.activity_id\n"
                                       "WHERE r.start_lat BETWEEN 46.04 AND 46.06 AND r.start_lon BETWEEN 14.49 AND 14.52;"),
-    ("Real geometry", "INSTALL spatial; LOAD spatial;\nSELECT id, ST_Length_Spheroid(ST_GeomFromText(wkt)) FROM routes JOIN activities ON id = activity_id;"),
+    ("Route length in metres (needs the spatial extension)",
+     "-- geometries are lon/lat (x, y); the spheroid functions want lat/lon, hence ST_FlipCoordinates\n"
+     "INSTALL spatial; LOAD spatial;\n"
+     "SELECT a.name, round(ST_Length_Spheroid(ST_FlipCoordinates(r.geom))) AS metres\n"
+     "FROM routes r JOIN activities a ON a.id = r.activity_id ORDER BY 2 DESC LIMIT 10;"),
 ]
 
 
@@ -174,12 +181,28 @@ def _import():
     return duckdb
 
 
+def spatial_installed() -> bool:
+    """Is DuckDB's spatial extension already on this computer? (Never downloads anything.)"""
+    try:
+        duckdb = _import()
+        con = duckdb.connect()
+    except DuckdbMissing:
+        return False
+    try:
+        con.execute("LOAD spatial")
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+    finally:
+        con.close()
+
+
 def availability() -> dict:
     try:
         duckdb = _import()
     except DuckdbMissing:
-        return {"available": False, "version": None, "install": INSTALL_COMMANDS}
-    return {"available": True, "version": duckdb.__version__, "install": INSTALL_COMMANDS}
+        return {"available": False, "version": None, "install": INSTALL_COMMANDS, "spatial": False}
+    return {"available": True, "version": duckdb.__version__, "install": INSTALL_COMMANDS, "spatial": spatial_installed()}
 
 
 def ddl() -> list[str]:
@@ -362,20 +385,30 @@ _CELLS_SQL = (
 
 # ------------------------------------------------------------------ the export
 
-def _add_geometry(con) -> bool:
-    """Give `routes` a real GEOMETRY column when DuckDB's spatial extension is installed (never downloads it)."""
+def _add_geometry(con, install: bool = False) -> tuple[bool, str | None]:
+    """Give `routes` a real GEOMETRY column: (added, problem).
+
+    The spatial extension is only downloaded (`INSTALL spatial`, once, from DuckDB's servers) when `install` is
+    true, which is the user's explicit choice; otherwise it is used only if it is already there."""
     try:
         con.execute("LOAD spatial")
-    except Exception:  # noqa: BLE001 - not installed, or no permission: the wkt column still works
-        return False
+    except Exception:  # noqa: BLE001 - not installed yet
+        if not install:
+            return False, None
+        try:
+            con.execute("INSTALL spatial")
+            con.execute("LOAD spatial")
+        except Exception as e:  # noqa: BLE001 - offline, blocked, or an unsupported platform: the export still succeeds
+            return False, f"Could not download DuckDB's spatial extension ({str(e).splitlines()[0][:120]}). " \
+                          "The route lines are still in the wkt column; try again when you are online."
     columns = {row[1] for row in con.execute("PRAGMA table_info('routes')").fetchall()}
     if "geom" not in columns:
         con.execute("ALTER TABLE routes ADD COLUMN geom GEOMETRY")
     con.execute("UPDATE routes SET geom = ST_GeomFromText(wkt) WHERE geom IS NULL")
-    return True
+    return True, None
 
 
-def sync(path=None, rebuild: bool = False, progress=None) -> dict:
+def sync(path=None, rebuild: bool = False, progress=None, spatial: bool | None = None) -> dict:
     """Create or update the database. Returns {"path", "activities", "new_samples_for", "sample_rows", "bytes"}."""
     duckdb = _import()
     path = Path(os.path.expanduser(str(path))) if path else prefs.export_path()
@@ -395,7 +428,8 @@ def sync(path=None, rebuild: bool = False, progress=None) -> dict:
         except duckdb.IOException as e:
             raise ExportBusy(f"The database file is open in another program (close it and try again): {e}") from e
         try:
-            result = _sync(con, path, rebuild, started, progress)
+            install = prefs.load()["export_spatial"] if spatial is None else spatial
+            result = _sync(con, path, rebuild, started, progress, install)
         finally:
             con.close()
         if rebuild:
@@ -411,7 +445,7 @@ def sync(path=None, rebuild: bool = False, progress=None) -> dict:
         raise
 
 
-def _sync(con, path: Path, rebuild: bool, started: str, progress) -> dict:
+def _sync(con, path: Path, rebuild: bool, started: str, progress, install_spatial: bool = False) -> dict:
     for statement in ddl():
         con.execute(statement)
     cache = _cache()
@@ -461,7 +495,7 @@ def _sync(con, path: Path, rebuild: bool, started: str, progress) -> dict:
 
     con.execute("UPDATE activities SET has_samples = id IN (SELECT DISTINCT activity_id FROM samples), "
                 "has_route = id IN (SELECT activity_id FROM routes)")
-    spatial = _add_geometry(con)
+    spatial, spatial_problem = _add_geometry(con, install_spatial)
     sample_rows = con.execute("SELECT count(*) FROM samples").fetchone()[0]
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     con.execute("DELETE FROM meta")
@@ -469,7 +503,7 @@ def _sync(con, path: Path, rebuild: bool, started: str, progress) -> dict:
                                                         ("sample_rows", str(sample_rows)), ("spatial", str(spatial).lower())])
     con.execute("CHECKPOINT")
     return {"path": str(path), "activities": len(activities), "activities_added_to_samples": total,
-            "sample_rows": sample_rows, "rebuilt": rebuild, "spatial": spatial}
+            "sample_rows": sample_rows, "rebuilt": rebuild, "spatial": spatial, "spatial_problem": spatial_problem}
 
 
 # ------------------------------------------------------------------ continuous export

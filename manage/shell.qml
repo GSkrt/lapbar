@@ -495,48 +495,36 @@ FloatingWindow {
             text: "Export now updates the file: only activities that are not in it yet are added. Rebuild writes a fresh file."
           }
 
-          // continuous export
-          Item {
+          Check {
             width: parent.width
-            height: continuousText.implicitHeight
+            enabled: !!win.status && win.status.export.available
+            checked: !!win.status && win.status.export.continuous
+            label: "Keep it up to date: append new activities after every refresh"
+            onToggled: win.act(["prefs", "--continuous", win.status.export.continuous ? "off" : "on"], "Saving\u2026")
+          }
 
-            Rectangle {
-              id: box
-              width: 18
-              height: 18
-              radius: 4
-              y: 1
-              color: win.status && win.status.export.continuous ? win.accent : "transparent"
-              border.width: 1
-              border.color: win.status && win.status.export.continuous ? win.accent : win.dim
-              Text {
-                anchors.centerIn: parent
-                visible: !!win.status && win.status.export.continuous
-                text: "✓"
-                color: win.surface
-                font.pixelSize: 13
-                font.bold: true
-              }
-            }
+          Check {
+            width: parent.width
+            enabled: !!win.status && win.status.export.available
+            checked: !!win.status && win.status.export.spatial_wanted
+            label: "Add real geometry (routes.geom): downloads DuckDB's spatial extension once (about 80 MB) from DuckDB's servers"
+            onToggled: win.act(["prefs", "--spatial", win.status.export.spatial_wanted ? "off" : "on"], "Saving\u2026")
+          }
 
-            Text {
-              id: continuousText
-              anchors.left: box.right
-              anchors.leftMargin: 8
-              anchors.right: parent.right
-              wrapMode: Text.WordWrap
-              text: "Keep it up to date: append new activities after every refresh"
-              color: win.fg
-              font.family: win.fontName
-              font.pixelSize: 13
-            }
+          Caption {
+            width: parent.width
+            visible: !!win.status && win.status.export.available
+            text: !win.status ? "" : (win.status.export.spatial
+              ? "Spatial extension: installed. routes.geom is filled on the next export."
+              : (win.status.export.spatial_wanted ? "Spatial extension: not installed yet; it is downloaded during the next export."
+                                                  : "Spatial extension: not installed. Without it the routes are still stored as text (wkt) and as map cells."))
+          }
 
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              enabled: !!win.status && win.status.export.available
-              onClicked: win.act(["prefs", "--continuous", win.status.export.continuous ? "off" : "on"], "Saving…")
-            }
+          Caption {
+            width: parent.width
+            visible: !!win.status && !!win.status.export.state.spatial_problem
+            text: win.status && win.status.export.state.spatial_problem ? win.status.export.state.spatial_problem : ""
+            color: win.warn
           }
 
           Caption {

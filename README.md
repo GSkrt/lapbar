@@ -275,10 +275,28 @@ How they join:
 - `routes.activity_id  <-  route_cells.activity_id`: the map cells (about 100 m) that line passes through: overlaps are a join on cell_x, cell_y
 - `activities.id  <-  samples.activity_id`: every second of the activity, with lat and lon on each row
 - `activities.id  <-  records.activity_id, kudos.activity_id`: records by name, and who gave kudos
+- `coordinates`: WGS 84 degrees, as Strava gives them (it sends [lat, lon]). Geometries are stored lon/lat (x = lon, y = lat); DuckDB's *_Spheroid functions expect lat/lon, so wrap geometries in ST_FlipCoordinates for them
 
-`routes.geom` is a real `GEOMETRY` column, added only if DuckDB's `spatial` extension is already installed
-(`INSTALL spatial;` in DuckDB, which needs a network connection once); LapBar never downloads it. Without it, the
+`routes.geom` is a real `GEOMETRY` column. It needs DuckDB's `spatial` extension (about 80 MB, downloaded once from
+DuckDB's servers into `~/.duckdb/extensions`). LapBar downloads it only if you tick *Add real geometry* in the data
+window (or run `lapbar export --spatial`); if it is already installed it is used without asking. Without it, the
 `wkt` column works with `ST_GeomFromText` later, and `route_cells` gives route overlaps as a plain join.
+
+Kilometres per week:
+
+```sql
+SELECT date_trunc('week', start_local) AS week, round(sum(distance_km)) AS km
+FROM activities WHERE family = 'ride' GROUP BY 1 ORDER BY 1 DESC LIMIT 12;
+```
+
+Best 20-minute power of each ride:
+
+```sql
+SELECT activity_id, round(max(w)) AS best_20min_w FROM (
+  SELECT activity_id, avg(watts) OVER (PARTITION BY activity_id ORDER BY t
+         ROWS BETWEEN 1199 PRECEDING AND CURRENT ROW) AS w
+  FROM samples WHERE watts IS NOT NULL) GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
+```
 
 Kilometres per week:
 
@@ -313,11 +331,13 @@ FROM routes r JOIN activities a ON a.id = r.activity_id
 WHERE r.start_lat BETWEEN 46.04 AND 46.06 AND r.start_lon BETWEEN 14.49 AND 14.52;
 ```
 
-Real geometry:
+Route length in metres (needs the spatial extension):
 
 ```sql
+-- geometries are lon/lat (x, y); the spheroid functions want lat/lon, hence ST_FlipCoordinates
 INSTALL spatial; LOAD spatial;
-SELECT id, ST_Length_Spheroid(ST_GeomFromText(wkt)) FROM routes JOIN activities ON id = activity_id;
+SELECT a.name, round(ST_Length_Spheroid(ST_FlipCoordinates(r.geom))) AS metres
+FROM routes r JOIN activities a ON a.id = r.activity_id ORDER BY 2 DESC LIMIT 10;
 ```
 
 The database holds your routes, so it is created with mode 600, and the temporary files used while loading are

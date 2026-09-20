@@ -68,6 +68,7 @@ def status() -> dict:
             "path": str(db),
             "default_path": prefs.default_export_path(),
             "continuous": bool(p["export_continuous"]),
+            "spatial_wanted": bool(p["export_spatial"]),
             "state": export.state(),
             "file_bytes": db.stat().st_size if db.is_file() else None,
         },
