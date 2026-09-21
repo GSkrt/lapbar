@@ -1751,18 +1751,13 @@ Panel {
               }
             }
 
-            Text {
-              text: chartsProcess.running ? "Opening charts\u2026" : "Open charts  \u2197"
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.body
-              font.bold: true
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openCharts()
-              }
+            TinyButton {                                    // opens the chart window of this ride
+              anchors.verticalCenter: parent.verticalCenter
+              label: chartsProcess.running ? "Opening charts\u2026" : "Open charts  \u2197"
+              busy: chartsProcess.running
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              onClicked: root.openCharts()
             }
           }
         }
@@ -1930,29 +1925,25 @@ Panel {
 
           Item {
             width: parent.width
-            height: fitnessTitle.implicitHeight
+            height: Math.max(fitnessTitle.implicitHeight, openFitness.implicitHeight)
 
             Text {
               id: fitnessTitle
+              anchors.verticalCenter: parent.verticalCenter
               text: "Fitness, fatigue & form"
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
             }
 
-            Text {
+            TinyButton {                                    // the full-size fitness chart
+              id: openFitness
               anchors.right: parent.right
-              text: "Open chart  \u2197"
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              font.bold: true
-
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.openFitnessChart()
-              }
+              anchors.verticalCenter: parent.verticalCenter
+              label: "Open chart  \u2197"
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              onClicked: root.openFitnessChart()
             }
           }
 

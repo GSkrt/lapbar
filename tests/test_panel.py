@@ -150,3 +150,12 @@ def test_the_chart_window_draws_tomorrows_form_as_an_outline_and_starts_on_today
     panel, shell = (root / "SeriesPanel.qml").read_text(), (root / "shell.qml").read_text()
     assert "projectedIndex" in panel and "strokeRect" in panel
     assert "projectedIndex: win.doc && win.doc.tomorrow" in shell and "doc.tomorrow ? 2 : 1" in shell and '(tomorrow)' in shell
+
+
+def test_the_open_chart_actions_are_small_blue_rounded_buttons():
+    button = (Path(__file__).resolve().parent.parent / "TinyButton.qml").read_text()
+    assert "radius: height / 2" in button and '"#2a78d6"' in button and "signal clicked()" in button
+    assert PANEL.count("TinyButton {") == 2
+    assert "onClicked: root.openCharts()" in PANEL.split("TinyButton {")[1][:400]
+    assert "onClicked: root.openFitnessChart()" in PANEL.split("TinyButton {")[2][:500]
+    assert 'View on Strava"' in PANEL and "color: root.stravaOrange" in PANEL          # the Strava link stays a plain orange link
