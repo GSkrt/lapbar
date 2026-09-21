@@ -122,7 +122,7 @@ def test_charts_command_opens_the_window_with_the_theme(monkeypatch, capsys, key
     code, out = fake_run(monkeypatch, capsys, ["charts", "5", "--fg", "#eee", "--bg", "#111", "--font", "JetBrains"])
     assert code == 0 and out == {"ok": True}
     path, env = opened[0]
-    assert path.endswith("streams/5.json")
+    assert path.endswith("streams/5.full.json")                # the window gets every recorded sample, not the overview
     assert env == {"LAPBAR_FG": "#eee", "LAPBAR_BG": "#111", "LAPBAR_FONT": "JetBrains"}
 
 

@@ -236,3 +236,53 @@ def test_backfill_redoes_stale_files_too(monkeypatch):
     got = []
     monkeypatch.setattr(streams, "request_json", lambda url, token=None, **kw: got.append(url) or raw_ride(300))
     assert streams.backfill("tok", [{**RIDE, "id": 5}], limit=3) == 1 and len(got) == 1
+
+
+# ---- the window's detail file: the actual samples, never averages
+
+def noisy_ride(seconds=4000):
+    """A distinctive value on every second, so any averaging shows."""
+    raw = raw_ride(seconds)
+    raw["heartrate"] = {"data": [100 + (i * 7) % 61 for i in range(seconds)]}
+    raw["watts"] = {"data": [(i * 13) % 400 for i in range(seconds)]}
+    return raw
+
+
+def test_the_detail_build_keeps_every_recorded_sample_unaveraged():
+    raw = noisy_ride()
+    d = streams.build(RIDE, raw, full=True)
+    assert d["points"] == 4000 == len(d["x"]["values"])
+    hr = next(s for s in d["series"] if s["key"] == "heartrate")["values"]
+    assert hr == raw["heartrate"]["data"]                                        # sample for sample
+    watts = next(s for s in d["series"] if s["key"] == "watts")["values"]
+    assert watts == raw["watts"]["data"] and max(watts) == 399                   # the peaks are still there
+    assert d["x"]["values"][:3] == [0.0, 0.01, 0.02] and d["distance_km"] == 39.99
+
+
+def test_the_overview_is_unchanged_and_small():
+    d = streams.build(RIDE, noisy_ride())
+    assert d["points"] == streams.MAX_POINTS == 1500
+
+
+def test_an_extremely_long_ride_keeps_every_kth_real_sample_and_the_finish(monkeypatch):
+    monkeypatch.setattr(streams, "FULL_MAX_POINTS", 1000)
+    raw = noisy_ride(3500)
+    d = streams.build(RIDE, raw, full=True)
+    hr = next(s for s in d["series"] if s["key"] == "heartrate")["values"]
+    assert len(hr) <= 1001 and hr[0] == raw["heartrate"]["data"][0] and hr[-1] == raw["heartrate"]["data"][-1]
+    assert set(hr) <= set(raw["heartrate"]["data"])                              # only values that were recorded
+    assert d["x"]["values"][-1] == round(3499 * 10 / 1000, 4)
+
+
+def test_detail_is_made_from_the_archive_without_a_request_and_only_the_latest_are_kept(monkeypatch):
+    from lapbar import raw as archive
+    monkeypatch.setattr(streams, "request_json", lambda *a, **k: pytest.fail("no request expected"))
+    for i in range(1, 8):
+        act = {**RIDE, "id": i}
+        archive.store(act, noisy_ride(300))
+        path = streams.detail(act)
+        assert path == streams.detail_path(i) and json.loads(path.read_text())["points"] == 300
+        os.utime(path, (i, i))                                                    # older ids look older
+    names = sorted(p.name for p in streams._dir().glob("*.full.json"))
+    assert len(names) == streams.DETAIL_KEEP and "7.full.json" in names and "1.full.json" not in names
+    assert streams.detail({**RIDE, "id": 99}) is None                             # not archived: nothing to make it from

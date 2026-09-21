@@ -380,7 +380,12 @@ def cmd_charts(args) -> int:
         print(json.dumps(error))
         return 1
     theme = {f"LAPBAR_{k}": v for k, v in (("FG", args.fg), ("BG", args.bg), ("ACCENT", args.accent), ("FONT", args.font)) if v}
-    charts.open_window(streams.path_for(args.activity), theme)
+    activity = next((a for a in (_read_cache() or {}).get("activities", []) if a.get("id") == args.activity), None) \
+        or history.find(args.activity) \
+        or {"id": args.activity, "start": data.get("start"), "name": data.get("name"),
+            "sport": data.get("sport"), "family": data.get("family")}
+    # The window gets every recorded sample and thins them out itself as you zoom; the overview is the fallback.
+    charts.open_window(streams.detail(activity) or streams.path_for(args.activity), theme)
     print(json.dumps({"ok": True}))
     return 0
 

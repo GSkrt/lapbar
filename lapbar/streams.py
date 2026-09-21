@@ -13,7 +13,11 @@ from .http import HttpError, request_json
 STREAMS_URL = raw_archive.URL      # everything at once, GPS included: the full answer is kept (see raw.py)
 # Bump when the stored format or the resampling changes: older files are then downloaded once more.
 DATA_VERSION = 2
-MAX_POINTS = 1500
+MAX_POINTS = 1500            # the small overview kept for every activity (the popup's profile, the archive)
+# The chart window opens a file with the actual samples of the ride (never averages), made on demand from the raw
+# archive (see detail()). A ride of more than this many samples (over 16 hours at one a second) keeps every k-th one.
+FULL_MAX_POINTS = 60000
+DETAIL_KEEP = 5              # detail files kept: the rides most recently opened
 # Slowest pace worth drawing (seconds per unit); slower than this means stopped and is left as a gap, so
 # standing still does not stretch the axis to 50 min/km.
 SLOWEST_PACE = {"km": 1800, "100m": 600, "500m": 1800}
@@ -40,9 +44,9 @@ def cached(activity_id: int) -> dict | None:
     return data if data.get("empty") or data.get("v") == DATA_VERSION else None
 
 
-def _store(activity_id: int, data: dict) -> None:
+def _store(activity_id: int, data: dict, path=None) -> None:
     config.private_dir(_dir())
-    path = path_for(activity_id)
+    path = path or path_for(activity_id)
     tmp = path.with_suffix(".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
@@ -79,8 +83,12 @@ def _mean_by_cell(values: list, cells: list[int], n: int, decimals: int) -> list
     return [round(v, decimals) if v is not None else None for v in out]
 
 
-def build(activity: dict, raw: dict) -> dict:
-    """Turn Strava's stream arrays into the chart data. `activity` is a listed/latest activity dict."""
+def build(activity: dict, raw: dict, full: bool = False) -> dict:
+    """Turn Strava's stream arrays into the chart data. `activity` is a listed/latest activity dict.
+
+    By default the ride is averaged into at most MAX_POINTS cells of even distance (small; for the overview).
+    With `full` the samples are kept as they were recorded, unaveraged (every k-th one only beyond FULL_MAX_POINTS),
+    so the chart window can zoom in to the actual data and show it as it is."""
     def data(key):
         entry = raw.get(key)
         return entry.get("data") if isinstance(entry, dict) else None
@@ -94,15 +102,29 @@ def build(activity: dict, raw: dict) -> dict:
     else:
         return {"empty": True}
 
-    n = min(len(x_raw), MAX_POINTS)
-    cells = _cells(x_raw, n)
     lo, hi = x_raw[0], x_raw[-1]
-    step = (hi - lo) / n
-    x = [round(lo + step * (i + 0.5), 4) for i in range(n)]  # cell centres
+    if full:
+        every = -(-len(x_raw) // FULL_MAX_POINTS)                 # 1 unless the ride is extremely long
+        keep = list(range(0, len(x_raw), every))
+        if keep[-1] != len(x_raw) - 1:
+            keep.append(len(x_raw) - 1)                            # the finish is always there
+        n = len(keep)
+        x = [round(x_raw[i], 4) for i in keep]                    # the samples themselves, not cell averages
 
-    def mean(key, decimals=1):
-        values = data(key)
-        return _mean_by_cell(values, cells, n, decimals) if values and len(values) == len(x_raw) else None
+        def mean(key, decimals=1):
+            values = data(key)
+            if not values or len(values) != len(x_raw):
+                return None
+            return [round(values[i], decimals) if values[i] is not None else None for i in keep]
+    else:
+        n = min(len(x_raw), MAX_POINTS)
+        cells = _cells(x_raw, n)
+        step = (hi - lo) / n
+        x = [round(lo + step * (i + 0.5), 4) for i in range(n)]  # cell centres
+
+        def mean(key, decimals=1):
+            values = data(key)
+            return _mean_by_cell(values, cells, n, decimals) if values and len(values) == len(x_raw) else None
 
     series = []
 
@@ -140,6 +162,26 @@ def build(activity: dict, raw: dict) -> dict:
         "distance_km": round(hi if x_meta["key"] == "distance" else activity.get("distance_km", 0), 2),
         "points": n, "series": series,
     }
+
+
+def detail_path(activity_id: int):
+    return _dir() / f"{activity_id}.full.json"
+
+
+def detail(activity: dict):
+    """The chart file for the window: every sample of the ride, made from the raw archive (no request). Returns its
+    path, or None when the archive does not have the ride (the overview from get() is then what there is)."""
+    archived = raw_archive.load(activity)
+    if not archived:
+        return None
+    data = build(activity, archived, full=True)
+    if data.get("empty"):
+        return None
+    path = detail_path(activity["id"])
+    _store(activity["id"], data, path)
+    for old in sorted(_dir().glob("*.full.json"), key=lambda p: p.stat().st_mtime, reverse=True)[DETAIL_KEEP:]:
+        old.unlink(missing_ok=True)                      # a rebuildable copy: keep only the rides opened most recently
+    return path
 
 
 def _download(token: str, activity: dict) -> dict:

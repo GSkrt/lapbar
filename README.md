@@ -474,6 +474,11 @@ charts can never affect the bar.
 - **Read values at any km.** A single vertical line runs across every plot at the same distance, each plot
   marks its value there, and the panel on the right lists every measure at that km with min / avg / max of
   what is in view. Move the mouse, or use the arrow keys (Shift for bigger steps, Home / End for the ends).
+- **Real samples, at any length.** The charts draw the samples your device recorded, never averages. Zoomed out on a
+  long ride, each pixel column of the plot shows its first, lowest, highest and last sample, so a single spike or
+  dropout in a five-hour ride is still there, and the drawing costs the same however long the ride is. Zoomed in far
+  enough (about one sample per pixel or fewer), every recorded sample is drawn. The readout, the minimum, average
+  and maximum, and the table use the same real samples.
 - **Browse.** Scroll or `+` `-` to zoom around the pointer, drag to pan, double-click or `R` to reset.
   Click a measure in the panel to hide or show it. `T` (or the Table button) switches to a table of every
   stored value, and clicking a row moves the line there.
@@ -481,8 +486,9 @@ charts can never affect the bar.
 - Colours follow your bar theme; each measure always keeps its own colour.
 
 Time series are downloaded **once**. The full answer from Strava (GPS included) is kept in
-`~/.local/share/lapbar/raw/` and a shrunk copy for the charts in `~/.cache/lapbar/streams/` (about 60 KB per
-hour of activity in the archive). Reopening a chart never asks Strava again, and if the chart copy is deleted it is
+`~/.local/share/lapbar/raw/` and a small overview for every activity in `~/.cache/lapbar/streams/` (about 60 KB per
+hour of activity in the archive). When you open a chart, a file with every recorded sample of that ride is made
+from the archive (about 130 KB per hour of the ride; the five most recently opened are kept, the rest are removed). Reopening a chart never asks Strava again, and if the chart copy is deleted it is
 rebuilt from the archive. The newest ride is fetched automatically; older activities are added in the background
 (`downloadHistory` per refresh, scaled down as the day's allowance fills up; 0 turns it off; charts you open are
 downloaded on demand either way). Each download is one Strava request. Chart copies are made again, without

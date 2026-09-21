@@ -143,6 +143,9 @@ numbers more accurate.
 The controls are the same as for the fitness chart: move the mouse or the arrow keys, scroll to zoom, drag to pan,
 double-click or R to reset, T for the table, Esc to close.
 
+The plots draw the samples your device recorded, never averages. On a long ride zoomed out, each pixel column shows its
+first, lowest, highest and last sample, so no spike or dropout disappears; zoom in far enough and every sample is drawn.
+
 ## The data window
 
 Menu, **Manage data...** shows what LapBar has stored and how fetching is going.

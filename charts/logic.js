@@ -184,3 +184,116 @@ function yRange(values, i0, i1) {
     if (pad === 0) pad = Math.max(1, Math.abs(st.max) * 0.05);
     return { min: st.min - pad, max: st.max + pad, dataMin: st.min, dataMax: st.max };
 }
+
+// ---- level of detail: what to draw for the visible part of a long series
+
+// Segments of points, [x0, y0, x1, y1, ...] in data units, one segment per unbroken run of values, for the samples
+// i0..i1 drawn across `columns` pixel columns that cover [v0, v1].
+//  - At most two samples per column (zoomed in far enough to tell them apart): the actual samples, every one.
+//  - More than that: per pixel column keep the first, the lowest, the highest and the last sample, in time order
+//    (the "M4" reduction). Drawn as a line it looks the same as the full data at this width, and a one-sample spike
+//    or dip cannot vanish the way it does when only every n-th sample is drawn. The cost follows the width of the
+//    window, not the length of the ride.
+function lod(xs, values, i0, i1, v0, v1, columns, nans) {
+    var segments = [], seg = [], i, v, points = 0;                 // NaN, like null, is a gap
+    if (i1 - i0 + 1 <= columns * 2 || !(v1 > v0)) {
+        for (i = i0; i <= i1; i++) {
+            v = values[i];
+            if (v === null || v === undefined || v !== v) {
+                if (seg.length) { segments.push(seg); seg = []; }
+            } else { seg.push(xs[i], v); points++; }
+        }
+        if (seg.length) segments.push(seg);
+        return { raw: true, segments: segments, points: points };
+    }
+    var scale = columns / (v1 - v0);
+    // Samples just outside the view (the one on each side that lets lines reach the edges) are drawn as they are.
+    var a = i0, end = i1 + 1;
+    while (a < end && xs[a] < v0) {
+        v = values[a];
+        if (v === v && v !== null && v !== undefined) { seg.push(xs[a], v); points++; }
+        a++;
+    }
+    var tail = end;
+    while (tail > a && xs[tail - 1] >= v1) tail--;                  // samples at or beyond the right edge
+    var edge = a;
+    for (var c = 0; c < columns && a < tail; c++) {
+        // the samples of column c are a..b-1: b is found by bisection, so the cost follows the width, not the count
+        var limit = v0 + (c + 1) / scale, lo = a, hi = tail;
+        if (xs[a] >= limit) continue;                               // nothing in this column
+        while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (xs[mid] < limit) lo = mid; else hi = mid; }
+        var b = xs[lo] < limit ? lo + 1 : lo;                       // one past the column's last sample
+        if (b <= a) b = a + 1;
+        if (nans && nans[b] - nans[a] > 0) {                        // a gap in this column: go sample by sample
+            for (i = a; i < b; i++) {
+                v = values[i];
+                if (v !== v) { if (seg.length) { segments.push(seg); seg = []; } continue; }
+                seg.push(xs[i], v); points++;
+            }
+        } else {
+            var lowIdx = a, highIdx = a, low = values[a], high = low;
+            for (i = a + 1; i < b; i++) {
+                v = values[i];
+                if (v < low) { low = v; lowIdx = i; } else if (v > high) { high = v; highIdx = i; }
+            }
+            points += emitColumn(seg, xs, values, a, lowIdx, highIdx, b - 1);
+        }
+        a = b;
+    }
+    for (i = a; i < end; i++) {                                     // what is left: the sample past the right edge
+        v = values[i];
+        if (v === null || v === undefined || v !== v) { if (seg.length) { segments.push(seg); seg = []; } }
+        else { seg.push(xs[i], v); points++; }
+    }
+    if (seg.length) segments.push(seg);
+    return { raw: false, segments: segments, points: points };
+}
+
+// One column's samples, in time order and without repeats: first, the lower and higher extreme, last.
+function emitColumn(seg, xs, values, first, lo, hi, last) {
+    var a = lo < hi ? lo : hi, b = lo < hi ? hi : lo, n = 1;
+    seg.push(xs[first], values[first]);
+    if (a !== first && a !== last) { seg.push(xs[a], values[a]); n++; }
+    if (b !== a && b !== first && b !== last) { seg.push(xs[b], values[b]); n++; }
+    if (last !== first) { seg.push(xs[last], values[last]); n++; }
+    return n;
+}
+
+// Running count of gaps (NaN) in typed values, nans[i] = gaps before sample i, or null when there are none: lets lod()
+// tell in one subtraction whether a column has a gap in it.
+function gapCounts(values) {
+    var out = new Int32Array(values.length + 1), any = false;
+    for (var i = 0; i < values.length; i++) {
+        var gap = values[i] !== values[i];
+        if (gap) any = true;
+        out[i + 1] = out[i] + (gap ? 1 : 0);
+    }
+    return any ? out : null;
+}
+
+// Lowest and highest y over a list of pieces returned by lod(), or null when there is nothing.
+function extent(pieces) {
+    var lo = Infinity, hi = -Infinity;
+    for (var p = 0; p < pieces.length; p++) {
+        var segs = pieces[p].segments;
+        for (var s = 0; s < segs.length; s++) {
+            var seg = segs[s];
+            for (var k = 1; k < seg.length; k += 2) {
+                if (seg[k] < lo) lo = seg[k];
+                if (seg[k] > hi) hi = seg[k];
+            }
+        }
+    }
+    return lo <= hi ? { min: lo, max: hi } : null;
+}
+
+// The values as a Float64Array (a gap becomes NaN): reading those in a long loop is much faster than reading a
+// JSON array that has nulls in it. Made once per series and kept.
+function typed(values) {
+    var out = new Float64Array(values.length);
+    for (var i = 0; i < values.length; i++) {
+        var v = values[i];
+        out[i] = (v === null || v === undefined) ? NaN : v;
+    }
+    return out;
+}

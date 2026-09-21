@@ -7,6 +7,11 @@ import "logic.js" as Logic
 // A panel draws its primary series and, for measures that share units (fitness and fatigue), any `overlay`
 // series on the same y axis. `series.draw` selects the look: "line" (default), "bars" (daily load) or "form"
 // (signed bars around zero: fresh above, tired below).
+//
+// Two canvases: the plot (title, grid, lines) is drawn when the view or the size changes, and a light one on top holds
+// the crosshair, so moving the mouse along a long ride redraws only that. The lines never draw more than a few points
+// per pixel column, however long the ride is, and they are always actual recorded samples: zoomed in every sample is
+// drawn, zoomed out the first, lowest, highest and last sample of each pixel column (see Logic.lod).
 Item {
   id: panel
 
@@ -34,10 +39,14 @@ Item {
   readonly property real plotW: width - gutter - rightPad
   readonly property bool inverted: series.key === "pace"   // faster (smaller) pace sits higher
   readonly property string kind: series.draw || "line"
+  readonly property var allSeries: [series].concat(overlay)
+  readonly property var allColors: [lineColor].concat(overlayColors)
+  property var xsTyped: null                    // xs as a Float64Array, made on the first paint
+  property var layoutInfo: null                 // set by the plot for the crosshair: {x0, pw, top, bottom, ph, min, max}
 
   onViewStartChanged: canvas.requestPaint()
   onViewEndChanged: canvas.requestPaint()
-  onCursorIndexChanged: canvas.requestPaint()
+  onCursorIndexChanged: crosshair.requestPaint()
   onWidthChanged: canvas.requestPaint()
   onHeightChanged: canvas.requestPaint()
   onLineColorChanged: canvas.requestPaint()
@@ -55,19 +64,40 @@ Item {
       var W = width, H = height
       var x0 = panel.gutter, pw = panel.plotW
       var top = 22, bottom = H - 6, ph = bottom - top
-      if (pw <= 10 || ph <= 10 || !panel.xs || panel.xs.length === 0) return
+      if (pw <= 10 || ph <= 10 || !panel.xs || panel.xs.length === 0) { panel.layoutInfo = null; crosshair.requestPaint(); return }
 
-      var all = [panel.series].concat(panel.overlay)
-      var colors = [panel.lineColor].concat(panel.overlayColors)
+      var all = panel.allSeries
+      var colors = panel.allColors
       var range = Logic.visibleRange(panel.xs, panel.viewStart, panel.viewEnd)
       var font = "12px " + panel.cssFamily
       var kind = panel.kind
+      var isBars = kind === "form" || kind === "bars"
+
+      // ---------- what to draw: actual samples only, at most a few per pixel column (bars are few, one per sample)
+      var pieces = []
+      if (!isBars) {
+        var columns = Math.max(1, Math.floor(pw / 2))          // 2-pixel columns: as sharp as a 2px line can show
+        if (!panel.xsTyped) panel.xsTyped = Logic.typed(panel.xs)
+        for (var pi = 0; pi < all.length; pi++) {
+          var one = all[pi]
+          if (!one.typed) {                                          // once per series: fast to read in a long loop
+            one.typed = Logic.typed(one.values)
+            one.gaps = Logic.gapCounts(one.typed)
+          }
+          pieces.push(Logic.lod(panel.xsTyped, one.typed, range[0], range[1], panel.viewStart, panel.viewEnd, columns, one.gaps))
+        }
+      }
 
       // ---------- y range: the data extent of everything in this panel (form is symmetric, bars start at 0)
       var lo = Infinity, hi = -Infinity
-      for (var q = 0; q < all.length; q++) {
-        var st = Logic.stats(all[q].values, range[0], range[1])
-        if (st) { lo = Math.min(lo, st.min); hi = Math.max(hi, st.max) }
+      if (isBars) {
+        for (var q = 0; q < all.length; q++) {
+          var st = Logic.stats(all[q].values, range[0], range[1])
+          if (st) { lo = Math.min(lo, st.min); hi = Math.max(hi, st.max) }
+        }
+      } else {
+        var ext = Logic.extent(pieces)                 // the reduction keeps every column's extremes, so this is exact
+        if (ext) { lo = ext.min; hi = ext.max }
       }
       var yr = null
       if (isFinite(lo)) {
@@ -99,6 +129,8 @@ Item {
       if (!yr) {
         ctx.font = font; ctx.fillStyle = panel.dimColor
         ctx.fillText("no data in this range", x0 + 8, top + ph / 2)
+        panel.layoutInfo = null
+        crosshair.requestPaint()
         return
       }
 
@@ -146,35 +178,25 @@ Item {
         }
       } else {
         // lines, 2px, gaps where data is missing; the elevation profile also gets a 10% wash
-        var stride = Math.max(1, Math.floor((range[1] - range[0]) / (pw * 1.5)))
+        ctx.lineJoin = "round"; ctx.lineCap = "round"
         for (var sIdx = all.length - 1; sIdx >= 0; sIdx--) {           // primary drawn last, so it sits on top
-          var vals = all[sIdx].values
-          var segments = []
-          var run = []
-          for (var i = range[0]; i <= range[1]; i += stride) {
-            var v = vals[i]
-            if (v === null || v === undefined) {
-              if (run.length) { segments.push(run); run = [] }
-            } else run.push([px(panel.xs[i]), py(v)])
-          }
-          if (run.length) segments.push(run)
-
-          ctx.lineJoin = "round"; ctx.lineCap = "round"
+          var segments = pieces[sIdx].segments
           for (var sg = 0; sg < segments.length; sg++) {
-            var seg = segments[sg]
-            if (seg.length > 1 && all[sIdx].key === "altitude") {
+            var seg = segments[sg]                                     // flat [x0, y0, x1, y1, ...] in data units
+            var last = seg.length - 2
+            if (seg.length > 2 && all[sIdx].key === "altitude") {
               ctx.beginPath()
-              ctx.moveTo(seg[0][0], bottom)
-              for (var a = 0; a < seg.length; a++) ctx.lineTo(seg[a][0], seg[a][1])
-              ctx.lineTo(seg[seg.length - 1][0], bottom)
+              ctx.moveTo(px(seg[0]), bottom)
+              for (var a = 0; a <= last; a += 2) ctx.lineTo(px(seg[a]), py(seg[a + 1]))
+              ctx.lineTo(px(seg[last]), bottom)
               ctx.closePath()
               ctx.fillStyle = Logic.rgba(colors[sIdx], 0.10)
               ctx.fill()
             }
             ctx.beginPath()
-            ctx.moveTo(seg[0][0], seg[0][1])
-            if (seg.length === 1) ctx.lineTo(seg[0][0] + 0.1, seg[0][1])
-            for (var bb = 1; bb < seg.length; bb++) ctx.lineTo(seg[bb][0], seg[bb][1])
+            ctx.moveTo(px(seg[0]), py(seg[1]))
+            if (seg.length === 2) ctx.lineTo(px(seg[0]) + 0.1, py(seg[1]))
+            for (var bb = 2; bb <= last; bb += 2) ctx.lineTo(px(seg[bb]), py(seg[bb + 1]))
             ctx.strokeStyle = colors[sIdx]
             ctx.lineWidth = 2
             ctx.stroke()
@@ -183,7 +205,32 @@ Item {
       }
       ctx.restore()
 
-      // ---------- crosshair: a hairline at the nearest sample, an end-dot per series with a surface ring, and values
+      panel.layoutInfo = { x0: x0, pw: pw, top: top, bottom: bottom, ph: ph, min: yr.min, max: yr.max }
+      crosshair.requestPaint()
+    }
+  }
+
+  // The crosshair: a hairline at the nearest sample, an end-dot per series with a surface ring, and the values.
+  Canvas {
+    id: crosshair
+    anchors.fill: parent
+    antialiasing: true
+
+    onPaint: {
+      var ctx = getContext("2d")
+      ctx.reset()
+      var L = panel.layoutInfo
+      if (!L || !panel.showCursor) return
+      var all = panel.allSeries
+      var colors = panel.allColors
+      var kind = panel.kind
+      var x0 = L.x0, pw = L.pw, top = L.top, bottom = L.bottom
+      function px(x) { return x0 + (x - panel.viewStart) / (panel.viewEnd - panel.viewStart) * pw }
+      function py(v) {
+        var f = (v - L.min) / (L.max - L.min)
+        return panel.inverted ? top + f * L.ph : bottom - f * L.ph
+      }
+
       var ci = panel.cursorIndex
       if (panel.showCursor && ci >= 0 && ci < panel.xs.length) {
         var cx = px(panel.xs[ci])

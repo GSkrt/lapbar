@@ -159,3 +159,72 @@ def test_year_long_axes_use_two_month_steps():
     ticks = js(f"dateTicks({days(2025, 6, 1)}, {days(2026, 6, 1)})")
     assert [t["label"] for t in ticks] == ["Jun", "Aug", "Oct", "Dec", "Feb", "Apr", "Jun"]
     assert all(t["x"] == days(y, m, 1) for t, (y, m) in zip(ticks, [(2025, 6), (2025, 8), (2025, 10), (2025, 12), (2026, 2), (2026, 4), (2026, 6)]))
+
+
+# ---- level of detail: only actual samples are ever drawn
+
+def test_zoomed_in_every_actual_sample_is_drawn():
+    out = js("lod([0, 1, 2, 3, 4], [5, 6, 7, 8, 9], 0, 4, 0, 4, 100)")
+    assert out["raw"] is True and out["segments"] == [[0, 5, 1, 6, 2, 7, 3, 8, 4, 9]]
+
+
+def test_zoomed_out_a_long_series_is_reduced_to_a_few_samples_per_pixel_column():
+    out = js("(function() { var xs = [], v = []; for (var i = 0; i < 100000; i++) { xs.push(i); v.push(Math.sin(i / 50) * 100); }"
+             " return lod(xs, v, 0, 99999, 0, 99999, 500); })()")
+    assert out["raw"] is False
+    assert out["points"] <= 4 * 500 + 4 and out["points"] < 100000 / 40          # bounded by the width, not the ride
+
+
+def test_every_drawn_point_is_a_real_sample_never_an_average():
+    out = js("(function() { var xs = [], v = []; for (var i = 0; i < 5000; i++) { xs.push(i * 0.5); v.push((i * 37) % 101); }"
+             " var r = lod(xs, v, 0, 4999, 0, 2499.5, 200); var bad = 0, seg = r.segments[0];"
+             " for (var k = 0; k < seg.length; k += 2) { var i = Math.round(seg[k] / 0.5); if (xs[i] !== seg[k] || v[i] !== seg[k + 1]) bad++; }"
+             " return { bad: bad, points: r.points }; })()")
+    assert out["bad"] == 0 and out["points"] > 0
+
+
+def test_a_one_sample_spike_survives_the_reduction():
+    out = js("(function() { var xs = [], v = []; for (var i = 0; i < 50000; i++) { xs.push(i); v.push(i === 31337 ? 999 : 10); }"
+             " var r = lod(xs, v, 0, 49999, 0, 49999, 300); var seen = false, low = 0;"
+             " r.segments.forEach(function(s) { for (var k = 0; k < s.length; k += 2) { if (s[k] === 31337 && s[k + 1] === 999) seen = true; } });"
+             " return { seen: seen, ext: extent([r]) }; })()")
+    assert out["seen"] is True and out["ext"] == {"min": 10, "max": 999}         # every-nth-sample drawing would lose it
+
+
+def test_the_first_and_last_sample_are_always_there_and_x_only_increases():
+    out = js("(function() { var xs = [], v = []; for (var i = 0; i < 20000; i++) { xs.push(i); v.push(i % 13); }"
+             " var r = lod(xs, v, 0, 19999, 0, 19999, 250), s = r.segments[0], up = true;"
+             " for (var k = 2; k < s.length; k += 2) if (s[k] < s[k - 2]) up = false;"
+             " return { first: s[0], last: s[s.length - 2], up: up }; })()")
+    assert out == {"first": 0, "last": 19999, "up": True}
+
+
+def test_gaps_in_the_data_split_the_line_in_both_modes():
+    raw = js("(function() { var v = typed([1, 2, null, null, 5, 6]); return lod([0, 1, 2, 3, 4, 5], v, 0, 5, 0, 5, 100, gapCounts(v)); })()")
+    assert raw["segments"] == [[0, 1, 1, 2], [4, 5, 5, 6]]
+    out = js("(function() { var xs = [], w = []; for (var i = 0; i < 9000; i++) { xs.push(i); w.push(i >= 4000 && i < 5000 ? null : i % 5); }"
+             " var v = typed(w); var r = lod(xs, v, 0, 8999, 0, 8999, 100, gapCounts(v)); var ends = r.segments.map(function(s) { return [s[0], s[s.length - 2]]; });"
+             " return { n: r.segments.length, ends: ends }; })()")
+    assert out["n"] == 2 and out["ends"][0][1] == 3999 and out["ends"][1][0] == 5000
+
+
+def test_a_flat_or_empty_range_does_not_break_it():
+    assert js("lod([0, 1, 2], [4, 4, 4], 0, 2, 0, 2, 50)")["segments"] == [[0, 4, 1, 4, 2, 4]]
+    assert js("lod([], [], 0, -1, 0, 1, 50)")["segments"] == []
+    assert js("extent([lod([0, 1], [null, null], 0, 1, 0, 1, 50)])") is None
+
+
+def test_gaps_split_a_long_reduced_line_and_the_extremes_are_exact():
+    out = js("(function() { var xs = [], w = []; for (var i = 0; i < 30000; i++) { xs.push(i * 0.37); w.push(i % 4001 === 17 ? null : Math.sin(i / 90) * 50 + (i % 11)); }"
+             " var v = typed(w), g = gapCounts(v);"
+             " var fast = lod(xs, v, 0, 29999, 0, 11099, 400, g);"
+             " return { gaps: g !== null, nf: fast.segments.length, e: extent([fast]), s: (function() { var lo = 1e9, hi = -1e9;"
+             " for (var i = 0; i < 30000; i++) if (w[i] !== null) { lo = Math.min(lo, w[i]); hi = Math.max(hi, w[i]); } return [lo, hi]; })() }; })()")
+    assert out["gaps"] is True and out["nf"] == 9                       # 8 dropouts split the line into 9 runs
+    assert out["e"]["min"] == pytest.approx(out["s"][0]) and out["e"]["max"] == pytest.approx(out["s"][1])   # the extremes are exact
+
+
+def test_no_gaps_means_no_gap_counts_and_typed_arrays_mark_missing_values_as_nan():
+    assert js("gapCounts(typed([1, 2, 3]))") is None
+    assert js("(function() { var t = typed([1, null, 3]); return [t[0], t[1] !== t[1], t[2]]; })()") == [1, True, 3]
+    assert js("Array.from(gapCounts(typed([1, null, null, 4])))") == [0, 0, 1, 2, 2]
