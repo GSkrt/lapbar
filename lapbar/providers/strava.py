@@ -3,7 +3,7 @@ import itertools
 import math
 from datetime import datetime, timedelta, timezone
 
-from .. import auth, details, fitness, history, kudos, raw, sports, stravaapi, streams
+from .. import auth, comments, details, fitness, history, kudos, raw, sports, stravaapi, streams
 from ..http import HttpError, request_json
 
 ACTIVITIES_URL = stravaapi.url("athlete_activities")
@@ -324,6 +324,8 @@ def fetch(
     listed = [_listed(a) for a in year]  # newest first
     events, kudos_seen, kudoers = kudos.track(
         token_source.access_token(), listed, previous, seed_limit=kudos.SEED_LIMIT if optional else 0)
+    comment_events, comments_seen, comment_texts = comments.track(
+        token_source.access_token(), listed, previous, seed_limit=comments.SEED_LIMIT if optional else 0)
     total = sum(v.get("count", 0) for v in days.values())
     if backfill and optional and len(raw.known_ids()) < total:
         try:  # archive older activities' full series a few at a time (this year first, then the older years)
@@ -351,4 +353,7 @@ def fetch(
         "kudos_seen": kudos_seen,
         "kudoers": kudoers,
         "kudos_events": events,
+        "comments_seen": comments_seen,
+        "comment_texts": comment_texts,
+        "comment_events": comment_events,
     }

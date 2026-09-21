@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-QML = [ROOT / "Panel.qml", ROOT / "charts" / "shell.qml"]
+QML = [ROOT / "Panel.qml", ROOT / "charts" / "shell.qml", ROOT / "activity" / "shell.qml"]
 
 
 def referenced_logos(qml: Path) -> set[str]:

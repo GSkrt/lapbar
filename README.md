@@ -25,7 +25,7 @@ Not affiliated with or endorsed by Strava.
 
 *The popup for a ride (records by name, kudos, route, stats, fitness and form, the skip and motivational-quote
 controls, calendar and totals) and the chart window for the same ride, one plot per measure with a shared cursor.
-The names of the people who gave kudos are blurred.*
+The details window with the comments, records and kudos is shown further down.*
 
 ## Getting started
 
@@ -117,7 +117,8 @@ Strava. It asks for the permissions `read` and `activity:read_all`. Every reques
 | GET | `/api/v3/activities/{id}` | records (PRs and top-10 places) by name, and one activity that is not in the list | once per activity that has records, and when a chart is opened for an activity that is not stored |
 | GET | `/api/v3/activities/{id}/streams` | the complete second-by-second data (GPS, altitude, speed, heart rate, power, cadence, ...) | once per activity: the newest ride, the background archive, and charts you open |
 | GET | `/api/v3/activities/{id}/kudos` | who gave kudos, for the notification and the popup | for the newest activities when their kudos count changes, and when you open an older ride |
-| GET | `/api/v3/athlete` | to show which Strava account was signed in | during setup only |
+| GET | `/api/v3/activities/{id}/comments` | who commented and what they wrote, for the notification and the details window | for the newest activities when their comment count changes, and when you open an older ride's details |
+| GET | `/api/v3/athlete` | to show which Strava account was signed in, and to know which comments are your own replies | during setup, and once when the first new comment arrives |
 | POST | `/oauth/token` | signing in (authorization_code) and renewing the access token (refresh_token, about every 6 hours) | at sign-in, and when the access token has expired |
 | BROWSER | `/oauth/authorize` | the page where you allow LapBar to read your activities (opened in your browser, not requested by LapBar) | at sign-in |
 
@@ -217,9 +218,8 @@ alerts.
 2. **⋮ Menu.** Refresh now, mute kudos alerts, refresh interval, FTP, Manage data, credentials, Strava API
    settings, About, Reset account (see the table below).
 3. **⟳ Refresh now.** Opening the popup also refreshes if the data is more than two minutes old.
-4. **Records and kudos.** The medals (your PRs) and cups (top-10 places) of the ride, with the segment name and the time;
-   below them the thumbs-up with **how many kudos** it got and who gave them. Click the header to fold it; *Show all*
-   lists everything.
+4. **Records, kudos & comments.** One line with the counts (`7 achievements · 15 kudos · 2 comments`). Click it to open
+   the details window with the comments, the medals and cups by name, and who gave the kudos (see "The details window").
 5. **The route.** The ride's outline, with the start marked.
 6. **View on Strava** opens the activity's page on Strava in your browser.
 7. **Open charts ↗** opens the chart window for this ride: elevation, speed, heart rate, power, cadence, temperature
@@ -228,7 +228,7 @@ alerts.
    the sport. Just below, `2 kudos · 2 PRs` is the same count the bar button shows.
 9. **Storage and requests.** How many of your activities have their full data stored on this computer, and how many of
    Strava's 1,000 daily requests are used today. The *Powered by Strava* logo is required by Strava.
-10. **Kudos alerts.** On or muted; click to switch.
+10. **Kudos and comment alerts.** On or muted; click to switch.
 11. **Fitness, fatigue and form:** three numbers, your FTP if set, a plain-words status and the plot. Hover any day.
 12. **Open chart ↗** opens the full-size fitness chart (see "Fitness, fatigue and form").
 13. **Training load versus last week.** A bar showing how this week so far compares with last week up to the same moment.
@@ -242,13 +242,19 @@ alerts.
 17. **Totals** for today, this week, this month and this year, per sport, with the total climb.
 18. **Powered by Strava**, in the bottom-right corner, as Strava's brand guidelines ask.
 
+The details window that item 4 opens (the names and comments here are made up):
+
+<p align="center">
+  <img src="docs/screenshots/activity-window.png" alt="The details window: the comments first, with a Comment on Strava link below them, then the records and who gave kudos, and the Powered by Strava logo at the bottom" width="560">
+</p>
+
 **I want to...**
 
 | I want to | Where |
 |---|---|
 | see how many **kudos and PRs** my latest ride got | the bar button's thumbs-up and medal frame (or its tooltip); in the popup, 4 and 8 |
-| see who gave kudos, and which records I set | Records and kudos (4) |
-| be told about new kudos | automatic; mute with 10, a right-click on the bar button or **⋮ → Mute kudos alerts**; Omarchy's do-not-disturb silences them too |
+| read the comments, see who gave kudos, and which records I set | Records, kudos & comments (4), which opens the details window |
+| be told about new kudos and comments | automatic; mute with 10, a right-click on the bar button or **⋮ → Mute kudos alerts**; Omarchy's do-not-disturb silences them too |
 | refresh now | ⟳ (3), **⋮ → Refresh now**, or a middle-click on the bar button |
 | change how often it refreshes | **⋮ → Refresh every…** (1 minute to 1 hour; default 15 minutes) |
 | look at an older ride | the calendar (16); *Back to latest activity* (1) returns |
@@ -285,24 +291,36 @@ stored per refresh), `ftp` (0 to 600; also in the menu) and `historyYears` (0 to
   has got. `lapbar archive --limit 100` does a batch right now. Your charts are built from these files, so they
   never need a second download. This folder is yours and is not a cache: "Reset account" leaves it alone
   (`lapbar reset --all` removes it too).
-- **Records and kudos** sit right under the ride's description, in a section that folds like the calendar (it
-  starts folded when the list is long, so the popup never outgrows the screen). A **medal** marks a personal record
-  (PR: your 1st, 2nd or 3rd fastest time on a segment, or a run's best efforts such as your fastest 5k), a **cup** a
-  top-10 place among everyone on a segment (1st is the KOM/QOM), each with the segment's name and the time it was
-  achieved in. Below that is who gave **kudos**, as Strava names them: first name and last initial, which is all
-  Strava's API returns for other people. Everything is fetched once per ride (two requests at most) and stored, and
-  for rides other than the latest only when you look at them.
+- **The details window** holds what does not fit a small popup. Click *Records, kudos & comments* under the ride's
+  description (or run `lapbar activity <id>`). It shows, in this order: the **comments** (who wrote what and when,
+  open by default, click the title to fold them, with a *Comment on Strava* link right below them), the **records**
+  and the **kudos**. A **medal** marks a personal record (PR: your 1st, 2nd or 3rd fastest time on a segment, or a
+  run's best efforts such as your fastest 5k), a **cup** a top-10 place among everyone on a segment (1st is the
+  KOM/QOM), each with the segment's name and the time it was achieved in. The kudos are shown as Strava names
+  people: first name and last initial, which is all Strava's API returns for other people. Everything is fetched
+  once per ride (three requests at most) and stored, and for rides other than the latest only when you open the
+  window. The window ends with the *Powered by Strava* logo.
+- **Comments cannot be answered from LapBar.** Strava's API can list the comments on an activity but has no call to
+  post one, so LapBar only reads them. *Comment on Strava* (and *View on Strava*) open the activity's page, where the
+  reply is written.
 - **Training load** compares this week so far with last week *up to the same moment of the week*, and shows
   what is still needed to beat last week's total. `loadMetric` chooses the measure: `time` (default, works for
   every sport), `distance`, or `effort` (Strava's Relative Effort; needs a heart-rate device, falls back to time).
 - **Kudos notifications** are sent after a refresh finds new kudos, as a cup-icon notification naming who gave
-  them (Strava returns first name and last initial). Only the 10 newest activities are watched; the first run
+  them (Strava returns first name and last initial). Only the 30 newest activities (about a month of riding) are watched; the first run
   only records a baseline. The names are kept in the local cache (`kudoers`) and never leave your machine.
+- **Every kudos and comment popup is about one activity and ends with a *View on Strava* link in Strava's orange** that
+  opens that activity (clicking the popup does the same; a desktop that draws notification buttons shows it as a
+  button). Two activities with news give two popups, each with its own link.
+- **Comment notifications** work the same way: a refresh sees the comment count of an activity go up, asks Strava
+  for the comments, and shows a popup with **who wrote what** ("Anna B. commented on Sunday spin").
+  Your own replies are not announced. The texts are kept in the local cache (`comment_texts`) and never leave your
+  machine.
 - **Do not disturb:** notifications go through the shell's notification service, so Omarchy's own do-not-disturb
-  silences them. A lapbar-only mute is under "Kudos alerts" in the popup, or right-click the bar button
+  silences them. A lapbar-only mute (kudos and comments together) is under "Kudos and comment alerts" in the popup, or right-click the bar button
   (`lapbar mute on|off|toggle|status`). While muted, events are consumed without notifying.
 
-Kudos are checked on each refresh (default 15 minutes), so an alert can arrive up to that much later.
+Kudos and comments are checked on each refresh (default 15 minutes), so an alert can arrive up to that much later.
 
 ### Motivational quotes and skipping a day
 
@@ -313,7 +331,7 @@ more days off, form falling, a comeback), never on a recovery week or when your 
 at the chair, never at you. The messages are plain files in `lapbar/messages/`.
 
 Skipping today? Tap **I'm tired**, **Bad weather**, **No time**, **Not feeling well** or **Planned rest day** in the
-popup (or on the notification). The day is ringed on the calendar and the coach stays quiet for it. From the
+popup. (Omarchy's notifications draw no buttons, so a nudge cannot take an excuse itself; on a desktop whose notifications do show buttons it carries three.) The day is ringed on the calendar and the coach stays quiet for it. From the
 terminal: `lapbar excuse tired`, `lapbar prefs --coach-tone drill`, `lapbar coach --test`.
 
 ### Fitness, fatigue and form
@@ -524,7 +542,8 @@ to run the real `secret-tool` fails the test. Run them with a venv that has `pyt
 
     lapbar charts <activity id>          # downloads once if needed, then opens the window
     lapbar streams <activity id> --refresh   # download the series again
-    lapbar details <activity id>         # the ride's records and kudos names, as the popup asks for them (JSON)
+    lapbar details <activity id>         # the ride's records, kudos names and comments, as the details window asks for them (JSON)
+    lapbar activity <activity id>        # open the details window
     lapbar archive --limit 100           # store the full data (with GPS) of 100 more activities now
     lapbar manage                        # the data window: history stored, fetching by day, the date limit
     lapbar history --sync                # download the older years for the calendar now (--refresh: again, --years N)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from lapbar import auth, cli, details, kudos, raw, setup, stravaapi
+from lapbar import auth, cli, comments, details, kudos, raw, setup, stravaapi
 from lapbar.providers import strava
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,6 +28,8 @@ def test_lapbar_only_reads_from_the_api():
     (details.DETAIL_URL.format(id=1), "activity_detail"),
     (raw.URL.format(id=1), "activity_streams"),
     (kudos.KUDOS_URL.format(id=1), "activity_kudos"),
+    (comments.COMMENTS_URL.format(id=1), "activity_comments"),
+    (comments.ATHLETE_URL, "athlete"),
     (setup.ATHLETE_URL, "athlete"),
     (auth.TOKEN_URL, "oauth_token"),
     (auth.AUTHORIZE_URL, "oauth_authorize"),
@@ -39,7 +41,8 @@ def test_every_address_the_code_uses_is_a_registered_call(address, call_id):
 def test_addresses_are_matched_by_path_not_by_prefix():
     assert stravaapi.call_for("https://www.strava.com/api/v3/activities/5/streams?keys=time")["id"] == "activity_streams"
     assert stravaapi.call_for("https://www.strava.com/api/v3/activities/5")["id"] == "activity_detail"
-    assert stravaapi.call_for("https://www.strava.com/api/v3/activities/5/comments") is None          # not one LapBar makes
+    assert stravaapi.call_for("https://www.strava.com/api/v3/activities/5/comments")["id"] == "activity_comments"
+    assert stravaapi.call_for("https://www.strava.com/api/v3/activities/5/laps") is None                # not one LapBar makes
     assert stravaapi.call_for("https://www.strava.com/api/v3/activities/5/streams/extra") is None
 
 

@@ -31,8 +31,7 @@ Click the button. Each numbered part is explained below the picture.
    activity* link appears here.
 2. **The menu** (three dots): refresh, mute, refresh interval, FTP, Manage data, How to use, credentials, About, Reset.
 3. **Refresh now.** Opening the popup also refreshes if the data is more than two minutes old.
-4. **Records and kudos.** The medals (your PRs) and cups (top-10 places) of the ride, with the segment name and the
-   time; below them the thumbs-up with **how many kudos** it got and who gave them. Click the header to fold it.
+4. **Records, kudos & comments.** One line with the counts. Click it to open the details window (see below).
 5. **The route.** The ride's outline, with the start marked.
 6. **View on Strava** opens the activity's page in your browser.
 7. **Open charts** opens the chart window for this ride.
@@ -40,7 +39,7 @@ Click the button. Each numbered part is explained below the picture.
    the sport. Just below, "2 kudos, 2 PRs" is the same count the bar button shows.
 9. **Storage and requests.** How many of your activities have their full data stored on this computer, and how many of
    Strava's 1,000 daily requests are used today.
-10. **Kudos alerts.** On or muted; click to switch.
+10. **Kudos and comment alerts.** On or muted; click to switch.
 11. **Fitness, fatigue and form.** Three numbers, your FTP if set, a plain-words status and the plot. Hover any day.
 12. **Open chart** opens the full-size fitness chart.
 13. **Training load versus last week.** How this week so far compares with last week up to the same moment.
@@ -58,8 +57,8 @@ Click the button. Each numbered part is explained below the picture.
 | I want to | Where |
 |---|---|
 | see how many **kudos and PRs** my latest ride got | the bar button's thumbs-up and medal frame (or its tooltip); in the popup, 4 and 8 |
-| see who gave kudos, and which records I set | Records and kudos (4) |
-| be told about new kudos | automatic; mute with 10, a right-click on the bar button, or the menu; Omarchy's do-not-disturb silences them too |
+| read the comments, see who gave kudos, and which records I set | Records, kudos & comments (4) |
+| be told about new kudos and comments | automatic; mute with 10, a right-click on the bar button, or the menu; Omarchy's do-not-disturb silences them too |
 | refresh now | the refresh button (3), the menu, or a middle-click on the bar button |
 | change how often it refreshes | menu, **Refresh every...** (1 minute to 1 hour; default 15 minutes) |
 | look at an older ride | the calendar (16); *Back to latest activity* (1) returns |
@@ -87,7 +86,22 @@ It has some sense: no popups on a recovery week or when your form is already low
 
 Not today? In the middle column, tap **I'm tired**, **Bad weather**, **No time**, **Not feeling well** or **Planned rest
 day**. The day gets a ring on the calendar (hover it to see the reason) and the coach leaves you alone for it. The
-popups have the same buttons, so you can skip straight from the notification.
+nudge itself has no buttons on Omarchy (its notifications do not draw them), so skip from here.
+
+## Comments, records and kudos
+
+Click **Records, kudos & comments** in the popup (4) to open the details window.
+
+![The details window: comments first, then records and kudos](screenshots/activity-window.png)
+
+- **Comments** come first: who wrote what, and when. Click the title to fold them. *Comment on Strava* below them
+  opens the activity on Strava. LapBar can read comments but not write them (Strava's API has no call to post
+  one), so a reply is written on Strava.
+- **Records:** a medal for a personal record, a cup for a top-10 place, with the segment and the time.
+- **Kudos:** the count and who gave them, as Strava names people (first name, last initial).
+
+When a new comment or kudos arrives, a popup says who it is from and what it says, about one activity each (two
+activities give two popups). Each ends with an orange *View on Strava* link; click the popup to open that activity. Your own replies are not announced, and the "Kudos and comment alerts" switch (10) mutes both.
 
 ## Fitness, fatigue and form
 

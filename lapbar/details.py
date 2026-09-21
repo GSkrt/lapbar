@@ -9,6 +9,7 @@ folder), and only for activities that have something to show:
            One request: the detailed activity.
   kudoers  who gave kudos, as Strava names them ("First L."). One request, usually already known from
            kudos.track() for the newest activities.
+  comments who wrote what. One request, usually already known from comments.track() for the newest activities.
 
 A stored answer is reused while the counts it was made for still match, because Strava fills in records a little
 after an upload and kudos keep arriving.
@@ -16,7 +17,7 @@ after an upload and kudos keep arriving.
 import json
 import os
 
-from . import config, kudos, stravaapi
+from . import comments as comments_mod, config, kudos, stravaapi
 from .http import request_json
 
 DETAIL_URL = stravaapi.url("activity_detail") + "?include_all_efforts=true"
@@ -115,5 +116,28 @@ def kudoers(token: str | None, activity: dict, known: list[str] | None = None) -
     return names
 
 
-def needs_download(activity: dict, known: list[str] | None = None) -> bool:
-    return records_cached(activity) is None or kudoers_cached(activity, known) is None
+def comments_cached(activity: dict, known: list[dict] | None = None) -> list[dict] | None:
+    """The comments already at hand (the summary's, or stored), [] for none, None when a download is needed."""
+    count = activity.get("comments", 0) or 0
+    if count == 0:
+        return []
+    if known:
+        return known
+    hit = _load(activity["id"]).get("comments")
+    return hit["items"] if hit and hit.get("count") == count else None
+
+
+def comments(token: str | None, activity: dict, known: list[dict] | None = None) -> list[dict]:
+    hit = comments_cached(activity, known)
+    if hit is not None:
+        return hit
+    items = comments_mod.fetch(token, activity["id"])
+    data = _load(activity["id"])
+    data["comments"] = {"count": activity.get("comments", 0), "items": items}
+    _save(activity["id"], data)
+    return items
+
+
+def needs_download(activity: dict, known: list[str] | None = None, known_comments: list[dict] | None = None) -> bool:
+    return (records_cached(activity) is None or kudoers_cached(activity, known) is None
+            or comments_cached(activity, known_comments) is None)

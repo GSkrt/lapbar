@@ -2,7 +2,7 @@
 """Draw the numbered markers of the README's popup guide on docs/screenshots/popup.png.
 
 The numbers match the list in README.md ("The popup, and where to find things") and docs/help.md. Positions are
-pixels in popup.png (1002 x 1006); when the popup layout changes, retake popup.png and adjust MARKS.
+pixels in popup.png (1002 x 712); when the popup layout changes, retake popup.png and adjust MARKS.
 Needs Pillow: python3 -m pip install pillow
 """
 import subprocess
@@ -12,10 +12,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 MARKS = [  # number, x, y
-    (1, 5, 92), (2, 274, 100), (3, 330, 100), (4, 5, 158), (5, 100, 540), (6, 46, 681), (7, 171, 681),
-    (8, 5, 712), (9, 5, 910), (10, 5, 981),                                          # left column
-    (11, 334, 66), (12, 564, 23), (13, 334, 591), (14, 334, 697), (15, 334, 781),   # middle column
-    (16, 664, 26), (17, 664, 299), (18, 812, 981),                                  # right column
+    (1, 5, 92), (2, 272, 100), (3, 330, 100), (4, 5, 156), (5, 100, 300), (6, 44, 385), (7, 173, 385),
+    (8, 5, 414), (9, 5, 612), (10, 5, 685),                                          # left column
+    (11, 334, 66), (12, 564, 23), (13, 334, 453), (14, 334, 559), (15, 334, 643),   # middle column
+    (16, 664, 26), (17, 664, 299), (18, 812, 688),                                  # right column
 ]
 
 

@@ -47,7 +47,7 @@ def test_new_kudos_are_attributed_to_the_new_people_only(api):
     api.by_activity = {1: ["Ana K.", "Bo M.", "Cy D."]}
     prev = {"kudos_seen": {"1": 2}, "kudoers": {"1": ["Ana K.", "Bo M."]}}
     events, seen, names = kudos.track("t", acts(ride=3), prev)
-    assert events == [{"activity_id": 1, "name": "ride", "count": 1, "total": 3, "from": ["Cy D."]}]
+    assert events == [{"activity_id": 1, "name": "ride", "url": None, "count": 1, "total": 3, "from": ["Cy D."]}]
     assert seen == {"1": 3} and names["1"] == ["Ana K.", "Bo M.", "Cy D."]
 
 
@@ -105,6 +105,19 @@ def test_name_seeding_is_bounded(api):
 
 
 def test_only_recent_activities_are_watched(api):
-    many = acts(**{f"a{i}": 0 for i in range(15)})
+    many = acts(**{f"a{i}": 0 for i in range(kudos.RECENT + 5)})
     _, seen, _ = kudos.track("t", many, None)
     assert len(seen) == kudos.RECENT
+
+
+def test_widening_the_watch_does_not_announce_old_kudos_as_new(api):
+    """An activity that was not watched before starts from the count the last list showed."""
+    previous = {"kudos_seen": {"1": 3}, "kudoers": {}, "activities": [{"id": 1, "kudos": 3}, {"id": 2, "kudos": 8}]}
+    listed = [{"id": 1, "name": "a", "kudos": 3}, {"id": 2, "name": "b", "kudos": 8}]
+    events, seen, _ = kudos.track("t", listed, previous, seed_limit=0)
+    assert events == [] and seen == {"1": 3, "2": 8}
+    listed[1]["kudos"] = 9                                       # a real new kudo on the newly watched activity
+    previous["kudoers"] = {"2": ["Ana K."]}
+    api.by_activity[2] = ["Ana K.", "Xen Y."]
+    events, _, _ = kudos.track("t", listed, previous, seed_limit=0)
+    assert [(e["count"], e["from"]) for e in events] == [(1, ["Xen Y."])]

@@ -60,17 +60,20 @@ def test_mute_switch_persists_and_toggles(monkeypatch, capsys, tmp_path):
     assert run("mute", "off") is False
 
 
-def test_events_are_printed_once_but_never_cached(monkeypatch, capsys, tmp_path):
+def test_events_are_delivered_once_as_popups_and_never_cached(monkeypatch, capsys, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-    summary = {"provider": "strava", "latest": None, "kudos_events": [{"activity_id": 1, "count": 2}]}
+    event = {"activity_id": 1, "name": "ride", "url": "https://www.strava.com/activities/1", "count": 2, "total": 2, "from": []}
+    summary = {"provider": "strava", "latest": None, "kudos_events": [event]}
+    delivered = []
+    monkeypatch.setattr(cli.alerts, "deliver", lambda kind, e: delivered.append((kind, e)))
     monkeypatch.setattr(strava, "fetch", lambda previous=None, backfill=0, optional=True, ftp=0, **kw: dict(summary))
     try:
         cli.main(["fetch", "--print"])
     except SystemExit:
         pass
     printed = json.loads(capsys.readouterr().out)
-    assert printed["kudos_events"] and printed["muted"] is False
+    assert delivered == [("kudos", event)] and "kudos_events" not in printed and printed["muted"] is False
     cached = json.loads((tmp_path / "lapbar" / "cache.json").read_text())
     assert "kudos_events" not in cached and "muted" not in cached
 

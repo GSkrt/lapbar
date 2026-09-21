@@ -73,8 +73,9 @@ to the cache, to logs or to the config file.
 asking. `lapbar reset` (and `--all`) and `omarchy plugin remove io.github.gskrt.lapbar` remove everything (see
 "Removing LapBar" in the README).
 
-**Processes it starts:** `quickshell -p <folder inside the plugin>` for its own chart, data and help windows,
-`notify-send` for notifications, and the plugin's own `bin/lapbar` in the background. It starts nothing else.
+**Processes it starts:** `quickshell -p <folder inside the plugin>` for its own chart, data, details and help
+windows, `notify-send` for notifications, `xdg-open` to open an activity's page on Strava in your browser, and the
+plugin's own `bin/lapbar` in the background. It starts nothing else.
 
 **Not affiliated with Strava.** Strava's "Powered by Strava" logo is used unmodified, as their brand guidelines ask.
 LapBar needs a Strava account with an active subscription to create the API app (the README explains why).

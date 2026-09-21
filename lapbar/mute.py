@@ -1,4 +1,4 @@
-"""Persistent mute switch for kudos alerts (a flag file, so it survives shell restarts)."""
+"""Persistent mute switch for kudos and comment alerts (a flag file, so it survives shell restarts)."""
 from . import config
 
 

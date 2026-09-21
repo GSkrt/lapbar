@@ -57,15 +57,15 @@ def test_icons_follow_stravas_meaning():
     assert 'icon("trophy")' not in PANEL
 
 
-def test_records_and_kudos_sit_under_the_ride_description_in_a_foldable_section():
+def test_records_kudos_and_comments_are_one_line_in_the_popup_and_a_window_holds_the_lists():
     header = PANEL.index("// ---------- header ----------")
-    section = PANEL.index("// ---------- records and kudos")
+    section = PANEL.index("// ---------- records, kudos and comments")
     route = PANEL.index("// ---------- route trace ----------")
     assert header < section < route                                   # right under the description, above the route
-    assert "achievementsPref" in PANEL and "achievementRows <= 8" in PANEL    # folded when long, like the calendar
-    assert "KudosBadge {" in PANEL and (Path(__file__).resolve().parent.parent / "KudosBadge.qml").is_file()   # the big thumbs up
-    assert "fmtEffort(recordRow.modelData.seconds)" in PANEL          # the time each record was achieved in
-    assert '"details", String(root.shown.id)' in PANEL and "root.opened" in PANEL.split("function loadDetails")[1][:200]
+    assert "root.achievementsSummary" in PANEL and "comments" in PANEL.split("achievementsSummary: {")[1][:500]
+    assert '"activity", String(root.shown.id)' in PANEL and "onClicked: root.openDetails()" in PANEL
+    for gone in ("shownRecords", "shownKudoers", "detailsProcess", "achievementsPref"):
+        assert gone not in PANEL                                      # the lists moved out of the popup
 
 
 def test_the_calendar_pages_back_to_the_earliest_stored_month_and_reads_older_years_on_demand():

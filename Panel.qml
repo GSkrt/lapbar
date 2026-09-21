@@ -304,89 +304,29 @@ Panel {
     root.selected = list[0]
   }
 
-  onShownChanged: { root.chartsMessage = ""; root.loadDetails() }
-  onShownIdChanged: { root.achievementsPref = 0; root.achievementsAll = false }
+  onShownChanged: root.chartsMessage = ""
 
-  // ------------------------------------------------ records (PRs, KOMs) and kudos names of the ride shown
+  // ------------------------------------------------ records, kudos and comments: a window of their own
 
-  property var detailsById: ({})        // {activity id: {records, kudoers, failed}}, filled by `lapbar details` for rides other than the latest
-  property int achievementsPref: 0      // 0 = open only when short, 1 = the user opened it, -1 = the user closed it
-  property bool achievementsAll: false
+  readonly property bool wantsAchievements: !!root.shown && (root.shown.prs > 0 || root.shown.achievements > 0 || root.shown.kudos > 0 || root.shown.comments > 0)
 
-  function recordsOf(l) {
-    if (!l) return []
-    if (l.records) return l.records
-    var lat = root.summary ? root.summary.latest : null
-    if (lat && lat.id === l.id && lat.records) return lat.records
-    var d = root.detailsById[String(l.id)]
-    return d && d.records ? d.records : []
-  }
-
-  function kudoersOf(l) {
-    if (!l || !(l.kudos > 0)) return []
-    var known = root.summary ? (root.summary.kudoers || {})[String(l.id)] : null
-    if (known && known.length > 0) return known
-    var d = root.detailsById[String(l.id)]
-    return d && d.kudoers ? d.kudoers : []
-  }
-
-  readonly property var shownRecords: root.recordsOf(root.shown)
-  readonly property var shownKudoers: root.kudoersOf(root.shown)
-  readonly property bool wantsAchievements: !!root.shown && (root.shown.prs > 0 || root.shown.achievements > 0 || root.shown.kudos > 0)
-  readonly property int achievementRows: root.shownRecords.length + Math.ceil(root.shownKudoers.length / 2)
-  // Short lists start open; a long one starts folded so the popup does not grow past the screen (like the calendar).
-  readonly property bool achievementsOpen: root.achievementsPref === 0 ? root.achievementRows <= 8 : root.achievementsPref > 0
-
+  // "7 achievements · 14 kudos · 2 comments": the counts that come with the activity list, so this costs no request.
   readonly property string achievementsSummary: {
-    var n = root.shownRecords.length          // Strava's word for PRs of any rank and top-10 places
+    if (!root.shown) return ""
     var parts = []
-    if (n > 0) parts.push(n + (n === 1 ? " achievement" : " achievements"))
-    var k = root.shown ? root.shown.kudos : 0
+    var a = root.shown.achievements, k = root.shown.kudos, c = root.shown.comments
+    if (a > 0) parts.push(a + (a === 1 ? " achievement" : " achievements"))
     if (k > 0) parts.push(k + (k === 1 ? " kudo" : " kudos"))
-    return parts.join(" · ")
+    if (c > 0) parts.push(c + (c === 1 ? " comment" : " comments"))
+    return parts.join(" \u00b7 ")
   }
 
-  function recordLabel(r) {
-    if (r.kind === "kom") return r.rank === 1 ? "KOM/QOM" : "Top 10 (#" + r.rank + ")"
-    return r.rank === 1 ? "PR" : (r.rank === 2 ? "2nd fastest" : "3rd fastest")
-  }
-
-  function medalColor(r) {
-    return r.rank === 1 ? "#e6b422" : (r.rank === 2 ? "#b8bcc4" : (r.rank === 3 ? "#cd7f32" : root.dim))
-  }
-
-  // Time an effort took: m:ss, or h:mm:ss.
-  function fmtEffort(seconds) {
-    if (seconds === undefined || seconds === null) return ""
-    var h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.round(seconds % 60)
-    return h > 0 ? h + ":" + pad2(m) + ":" + pad2(s) : m + ":" + pad2(s)
-  }
-
-  function needsDetails(l) {
-    if (!l || !l.id) return false
-    var d = root.detailsById[String(l.id)]
-    if (d && !d.failed) return false
-    return ((l.prs > 0 || l.achievements > 0) && root.recordsOf(l).length === 0) || (l.kudos > 0 && root.kudoersOf(l).length === 0)
-  }
-
-  // Only while the popup is open, and one ride at a time; a stored answer costs no request to Strava.
-  function loadDetails() {
-    if (!root.opened || detailsProcess.running || !root.needsDetails(root.shown)) return
-    detailsProcess.wantedId = root.shown.id
-    detailsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "details", String(root.shown.id)]
-    detailsProcess.running = true
-  }
-
-  function handleDetails(id, text) {
-    var entry = { records: [], kudoers: [], failed: true }
-    try {
-      var p = JSON.parse(text)
-      if (!p.error) entry = { records: p.records || [], kudoers: p.kudoers || [], failed: false }
-    } catch (e) { }
-    var map = Object.assign({}, root.detailsById)
-    map[String(id)] = entry
-    root.detailsById = map
-    if (root.shown && String(root.shown.id) !== String(id)) root.loadDetails()   // the ride shown changed meanwhile
+  // The lists themselves (medals and cups by name, who gave kudos, the comments) are in a window, so the popup stays short.
+  function openDetails() {
+    if (!root.shown || chartsProcess.running) return
+    chartsProcess.command = ["/usr/bin/python3", "-I", root.launcher, "activity", String(root.shown.id),
+      "--fg", String(root.foreground), "--bg", String(Color.background), "--accent", String(Color.accent), "--font", root.fontFamily]
+    chartsProcess.running = true
   }
 
   function backToLatest() {
@@ -572,7 +512,7 @@ Panel {
       return out
     }
     out.push({ label: "Refresh now", action: "refresh" })
-    out.push({ label: root.muted ? "Unmute kudos alerts" : "Mute kudos alerts", action: "mute" })
+    out.push({ label: root.muted ? "Unmute kudos and comment alerts" : "Mute kudos and comment alerts", action: "mute" })
     out.push({ label: "Refresh every " + root.intervalLabel(root.refreshIntervalSec) + "\u2026", action: "interval" })
     out.push({ label: "FTP: " + (root.ftp > 0 ? root.ftp + " W" : "not set") + "\u2026", action: "ftp" })
     out.push({ label: "Manage data\u2026", action: "manage" })
@@ -782,31 +722,10 @@ Panel {
     return lines.join("\n")
   }
 
-  // ------------------------------------------------------------------ kudos notifications
+  // ------------------------------------------------------------------ mute (kudos and comment popups come from the CLI)
   //
   // Sent through the shell's own notification service, so Omarchy's do-not-disturb silences them
   // too; the mute switch below is a lapbar-only version of the same thing.
-
-  function kudosNotification(ev) {
-    var names = ev.from || []
-    var who = names.length ? names.slice(0, 4).join(", ") + (names.length > 4 ? " and " + (names.length - 4) + " more" : "") : ""
-    return {
-      title: root.icon("kudos") + "  " + ev.count + (ev.count === 1 ? " new kudo" : " new kudos"),
-      body: (who ? who + " on " : "On ") + "\u201c" + ev.name + "\u201d \u00b7 " + ev.total + " total"
-    }
-  }
-
-  function notifyKudos(events) {
-    if (root.muted) return
-    for (var i = 0; i < events.length; i++) {
-      var n = root.kudosNotification(events[i])
-      Quickshell.execDetached({
-        command: ["/usr/bin/notify-send", "-a", "lapbar", "-u", "normal", "-t", "10000", n.title, n.body],
-        clearEnvironment: true,
-        environment: root.desktopEnvironment
-      })
-    }
-  }
 
   function setMuted(state) {  // "on" | "off" | "toggle"
     if (muteProcess.running) return
@@ -865,7 +784,6 @@ Panel {
     root.lastUpdatedAt = Date.now()
     root.muted = !!parsed.muted
     root.setupWatching = false
-    if (parsed.kudos_events && parsed.kudos_events.length > 0) root.notifyKudos(parsed.kudos_events)
     root.loadCoach()
   }
 
@@ -967,17 +885,6 @@ Panel {
   }
 
   Process {
-    id: detailsProcess
-    property var wantedId: 0
-    running: false
-    command: []
-    clearEnvironment: true
-    environment: root.fetchEnvironment
-    stdout: StdioCollector { id: detailsOut; waitForEnd: true }
-    onExited: root.handleDetails(detailsProcess.wantedId, detailsOut.text)
-  }
-
-  Process {
     id: muteProcess
     running: false
     command: []
@@ -1035,7 +942,6 @@ Panel {
       root.aboutOpen = false
       root.intervalOpen = false
       root.ftpOpen = false
-      root.loadDetails()
       root.loadCoach()
       if (Date.now() - root.lastUpdatedAt > 120000) root.refresh(true)
     }
@@ -1629,22 +1535,21 @@ Panel {
 
         PanelSeparator { foreground: root.foreground }
 
-        // ---------- records and kudos, right under the ride's description ----------
+        // ---------- records, kudos and comments: the counts, and a way into the window with the lists ----------
 
-        Column {
+        Item {
           id: achievementsBox
           visible: root.wantsAchievements
           width: parent.width
-          spacing: Style.spacing.sm
+          height: achievementsText.implicitHeight
 
-          Item {
+          Column {
+            id: achievementsText
             width: parent.width
-            height: achievementsToggle.implicitHeight + Style.space(4)
+            spacing: Style.space(2)
 
             Text {
-              id: achievementsToggle
-              anchors.verticalCenter: parent.verticalCenter
-              text: (root.achievementsOpen ? "\u25be  " : "\u25b8  ") + "Records & kudos"
+              text: "Records, kudos & comments  \u2197"
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.body
@@ -1652,160 +1557,19 @@ Panel {
             }
 
             Text {
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              visible: !root.achievementsOpen
+              width: parent.width
+              wrapMode: Text.WordWrap
               text: root.achievementsSummary
               color: root.dim
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
             }
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.achievementsPref = root.achievementsOpen ? -1 : 1
-            }
           }
 
-          Text {
-            visible: root.achievementsOpen && detailsProcess.running && root.shownRecords.length === 0 && root.shownKudoers.length === 0
-            text: "Loading\u2026"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-          }
-
-          // PRs (a medal) and top places (a cup), with the time each was achieved in
-          Column {
-            id: recordsTable
-            visible: root.achievementsOpen && root.shownRecords.length > 0
-            width: parent.width
-            spacing: Style.space(2)
-
-            Repeater {
-              model: root.achievementsAll ? root.shownRecords : root.shownRecords.slice(0, 6)
-
-              Item {
-                id: recordRow
-                required property var modelData
-                width: recordsTable.width
-                height: Style.space(22)
-
-                Text {
-                  id: recordIcon
-                  anchors.left: parent.left
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(22)
-                  text: root.icon(recordRow.modelData.kind)
-                  color: root.medalColor(recordRow.modelData)
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                }
-
-                Text {
-                  id: recordLabel
-                  anchors.left: recordIcon.right
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: Style.space(92)
-                  elide: Text.ElideRight
-                  text: root.recordLabel(recordRow.modelData)
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                  font.bold: true
-                }
-
-                Text {
-                  id: recordTime
-                  anchors.right: parent.right
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: root.fmtEffort(recordRow.modelData.seconds)
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                }
-
-                Text {
-                  anchors.left: recordLabel.right
-                  anchors.right: recordTime.left
-                  anchors.rightMargin: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-                  elide: Text.ElideRight
-                  textFormat: Text.PlainText
-                  text: recordRow.modelData.name
-                  color: root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                }
-              }
-            }
-          }
-
-          // the kudos, with a large thumbs up
-          KudosBadge {
-            visible: root.achievementsOpen && !!root.shown && root.shown.kudos > 0
-            count: root.shown ? root.shown.kudos : 0
-            glyph: root.icon("kudos")
-            foreground: root.foreground
-            dim: root.dim
-            fontFamily: root.fontFamily
-            iconSize: Style.space(40)
-            numberSize: Style.font.display
-            captionSize: Style.font.caption
-          }
-
-          // who gave them, as Strava names people (first name and last initial)
-          Column {
-            id: kudosTable
-            visible: root.achievementsOpen && root.shownKudoers.length > 0
-            width: parent.width
-            spacing: Style.space(2)
-
-            Grid {
-              columns: 2
-              columnSpacing: Style.space(12)
-              rowSpacing: Style.space(2)
-              width: parent.width
-
-              Repeater {
-                model: root.achievementsAll ? root.shownKudoers : root.shownKudoers.slice(0, 12)
-
-                Text {
-                  required property var modelData
-                  width: (kudosTable.width - Style.space(12)) / 2
-                  elide: Text.ElideRight
-                  textFormat: Text.PlainText
-                  text: modelData
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.bodySmall
-                }
-              }
-            }
-
-            Text {
-              visible: !!root.shown && root.shown.kudos > root.shownKudoers.length
-              text: "and " + (root.shown ? root.shown.kudos - root.shownKudoers.length : 0) + " more that Strava does not list"
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-            }
-          }
-
-          Text {
-            visible: root.achievementsOpen && (root.shownRecords.length > 6 || root.shownKudoers.length > 12)
-            text: root.achievementsAll ? "Show fewer" : "Show all (" + (root.shownRecords.length + root.shownKudoers.length) + ")"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            font.underline: true
-
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: root.achievementsAll = !root.achievementsAll
-            }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.openDetails()
           }
         }
 
@@ -2069,7 +1833,7 @@ Panel {
 
         Text {
           visible: !root.needsSetup
-          text: root.icon(root.muted ? "bellOff" : "bell") + "  Kudos alerts: " + (root.muted ? "muted" : "on")
+          text: root.icon(root.muted ? "bellOff" : "bell") + "  Kudos and comment alerts: " + (root.muted ? "muted" : "on")
           color: root.muted ? root.dim : root.foreground
           font.family: root.fontFamily
           font.pixelSize: Style.font.bodySmall

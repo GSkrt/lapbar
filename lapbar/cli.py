@@ -6,7 +6,7 @@ import os
 import sys
 from datetime import date, datetime, timedelta
 
-from . import auth, charts, coach, config, details, excuses, export, fitness, helpwin, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
+from . import activitywin, alerts, auth, charts, coach, comments, config, details, excuses, export, fitness, helpwin, history, manage, mute, pick, prefs, ratelimit, raw, setup, streams, stravaapi, vault
 from .http import HttpError, request_json
 from .providers import strava
 
@@ -92,7 +92,16 @@ def cmd_fetch(args) -> int:
             coach.deliver(event)
     except Exception:  # noqa: BLE001 - a nudge must never break a refresh
         summary["coach"] = None
-    _write_cache({k: v for k, v in summary.items() if k != "kudos_events"})
+    # Kudos and comment events are delivered once, as popups (one per activity), and never cached or replayed.
+    news = [("kudos", e) for e in summary.pop("kudos_events", None) or []] + \
+           [("comments", e) for e in summary.pop("comment_events", None) or []]
+    try:
+        if not mute.is_muted():
+            for kind, event in news:
+                alerts.deliver(kind, event)   # each ends with a View on Strava link to its own activity
+    except Exception:  # noqa: BLE001 - an alert must never break a refresh
+        pass
+    _write_cache(summary)
     try:
         export.spawn_if_enabled()      # continuous DuckDB export, in its own process so the refresh stays quick
     except OSError:
@@ -139,7 +148,7 @@ def cmd_streams(args) -> int:
 
 
 def cmd_details(args) -> int:
-    """The records and kudos names of one activity, for the popup: from what is stored, else downloaded once."""
+    """The records, kudos names and comments of one activity, for the details window: from what is stored, else downloaded."""
     cache = _read_cache() or {}
     activity = next((a for a in cache.get("activities", []) if a.get("id") == args.activity), None) \
         or history.find(args.activity)
@@ -147,19 +156,54 @@ def cmd_details(args) -> int:
         print(json.dumps({"error": "unknown_activity", "message": "That activity is not in the stored list."}))
         return 1
     known = (cache.get("kudoers") or {}).get(str(activity["id"]))
+    known_comments = (cache.get("comment_texts") or {}).get(str(activity["id"]))
     try:
         token = None
-        if details.needs_download(activity, known):
+        if details.needs_download(activity, known, known_comments):
             ratelimit.check("action")          # stored answers cost nothing, so only a download is checked
             token = auth.default_token_source().access_token()
         out = {"id": activity["id"], "records": details.records(token, activity),
-               "kudoers": details.kudoers(token, activity, known)}
+               "kudoers": details.kudoers(token, activity, known),
+               "comments": [{k: c.get(k) for k in ("who", "text", "at")}
+                            for c in details.comments(token, activity, known_comments)],
+               "activity": {k: activity.get(k) for k in ("name", "sport", "start", "url", "kudos", "comments", "prs", "achievements")}}
     except (auth.NotConfigured, auth.NotAuthorized, vault.VaultUnavailable, ratelimit.BudgetExhausted,
             HttpError, OSError) as e:
         code, message = _classify(e)
         print(json.dumps({"error": code, "message": message}))
         return 1
     print(json.dumps(out))
+    return 0
+
+
+def cmd_alert(args) -> int:
+    """Show one popup for an event (used by a refresh, in a process of its own so it can wait for a click)."""
+    try:
+        payload = json.loads(args.deliver)
+        kind, event = payload["kind"], payload["event"]
+        if kind not in alerts.KINDS or not isinstance(event, dict):
+            raise ValueError("unknown alert")
+        if kind == "comments":
+            event["comments"] = [{"who": comments.clean_text(c.get("who")) or "Someone", "text": comments.clean_text(c.get("text"))}
+                                 for c in event["comments"] if isinstance(c, dict)]
+            if not event["comments"]:
+                return 0
+        elif not isinstance(event.get("count"), int) or not isinstance(event.get("total"), int):
+            raise ValueError("kudos event without counts")
+        event["name"] = comments.clean_text(event.get("name"))
+        event["from"] = [comments.clean_text(n) for n in event.get("from") or [] if isinstance(n, str)]
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
+        print(json.dumps({"error": "bad_event", "message": str(e)}))
+        return 1
+    print(json.dumps({"chosen": alerts.show(kind, event)}))
+    return 0
+
+
+def cmd_activity(args) -> int:
+    """Open the details window for an activity: records, kudos and comments."""
+    theme = {f"LAPBAR_{k}": v for k, v in (("FG", args.fg), ("BG", args.bg), ("ACCENT", args.accent), ("FONT", args.font)) if v}
+    activitywin.open_window(args.activity, theme)
+    print(json.dumps({"ok": True}))
     return 0
 
 
@@ -406,7 +450,7 @@ def main(argv: list[str] | None = None) -> None:
     streams_p.add_argument("activity", type=int)
     streams_p.add_argument("--refresh", action="store_true", help="download again even if stored")
     streams_p.set_defaults(func=cmd_streams)
-    details_p = sub.add_parser("details", help="an activity's records (PRs, KOMs) and who gave kudos (JSON)")
+    details_p = sub.add_parser("details", help="an activity's records (PRs, KOMs), who gave kudos and its comments (JSON)")
     details_p.add_argument("activity", type=int)
     details_p.set_defaults(func=cmd_details)
     history_p = sub.add_parser("history", help="older years for the calendar: show what is stored, or --sync to download")
@@ -433,6 +477,14 @@ def main(argv: list[str] | None = None) -> None:
     excuse_p.add_argument("key", choices=(*("tired", "weather", "time", "unwell", "rest"), "clear"))
     excuse_p.add_argument("--date", metavar="YYYY-MM-DD", help="the day (default: today)")
     excuse_p.set_defaults(func=cmd_excuse)
+    activity_p = sub.add_parser("activity", help="open the details window of an activity: records, kudos and comments")
+    activity_p.add_argument("activity", type=int)
+    for flag in ("--fg", "--bg", "--accent", "--font"):
+        activity_p.add_argument(flag, default=None)
+    activity_p.set_defaults(func=cmd_activity)
+    alert_p = sub.add_parser("alert", help="show a kudos or comment popup (used by a refresh)")
+    alert_p.add_argument("--deliver", metavar="JSON", required=True, help='{"kind": "kudos"|"comments", "event": {...}}')
+    alert_p.set_defaults(func=cmd_alert)
     howto_p = sub.add_parser("howto", help="open the how-to window: the guide, inside the app")
     for flag in ("--fg", "--bg", "--accent", "--font"):
         howto_p.add_argument(flag, default=None)
@@ -478,7 +530,7 @@ def main(argv: list[str] | None = None) -> None:
     reset_p.add_argument("--all", action="store_true", help="also delete the downloaded activities (the raw archive)")
     reset_p.set_defaults(func=cmd_reset)
     sub.add_parser("status", help="show whether LapBar is set up (JSON)").set_defaults(func=cmd_status)
-    mute_p = sub.add_parser("mute", help="mute or unmute kudos notifications")
+    mute_p = sub.add_parser("mute", help="mute or unmute kudos and comment notifications")
     mute_p.add_argument("state", nargs="?", choices=["on", "off", "toggle", "status"], default="status")
     mute_p.set_defaults(func=cmd_mute)
     sub.add_parser("auth", help="one-time Strava login").set_defaults(func=cmd_auth)
