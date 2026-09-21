@@ -13,7 +13,8 @@ work counted. Charts show every recorded sample of any ride, a details window ho
 and an optional coach nudges you off the chair (Silent, Motivational or Drill sergeant, and never on a recovery week).
 Your data is stored locally, credentials stay in your system keyring, and nothing is sent anywhere but to Strava.
 
-**Video:** [a walkthrough of LapBar, from setup to the charts](https://youtu.be/mAuwrWA-xg0).
+**Video:** [a quick walkthrough of LapBar](https://youtu.be/mAuwrWA-xg0) (the popup, comments, fitness, charts and menus;
+installing and the setup are not in it, see "Getting started" below).
 
 Not affiliated with or endorsed by Strava.
 
