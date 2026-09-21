@@ -159,3 +159,7 @@ def test_the_open_chart_actions_are_small_blue_rounded_buttons():
     assert "onClicked: root.openCharts()" in PANEL.split("TinyButton {")[1][:400]
     assert "onClicked: root.openFitnessChart()" in PANEL.split("TinyButton {")[2][:500]
     assert 'View on Strava"' in PANEL and "color: root.stravaOrange" in PANEL          # the Strava link stays a plain orange link
+
+
+def test_the_menu_is_never_wider_than_the_column_it_hangs_in():
+    assert "width: Math.min(leftCol.width, root.aboutOpen" in PANEL            # the About card used to be cut off at the edge

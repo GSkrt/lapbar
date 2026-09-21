@@ -1099,7 +1099,8 @@ Panel {
             anchors.top: parent.bottom
             anchors.right: parent.right
             anchors.topMargin: Style.space(4)
-            width: root.aboutOpen ? Style.space(350) : ((root.intervalOpen || root.ftpOpen) ? Style.space(320) : Style.space(270))
+            // never wider than the column it hangs in, so nothing is cut off at the popup's edge
+            width: Math.min(leftCol.width, root.aboutOpen ? Style.space(350) : ((root.intervalOpen || root.ftpOpen) ? Style.space(320) : Style.space(270)))
             height: menuColumn.implicitHeight + Style.space(12)
             radius: Style.space(6)
             color: Color.background
@@ -1403,7 +1404,8 @@ Panel {
                   font.pixelSize: Style.font.bodySmall
                 }
 
-                Row {
+                Flow {                                              // wraps, so a narrow card never cuts a link off
+                  width: parent.inner
                   spacing: Style.space(14)
 
                   Repeater {
@@ -1416,7 +1418,7 @@ Panel {
                     Text {
                       required property var modelData
                       text: modelData.label + " \u2197"
-                      color: root.stravaOrange
+                      color: Color.accent                                   // GitHub links: not Strava's orange, which is for Strava
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.bodySmall
                       font.bold: true

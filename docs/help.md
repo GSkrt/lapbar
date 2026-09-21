@@ -34,14 +34,15 @@ Click the button. Each numbered part is explained below the picture.
 4. **Records, kudos & comments.** One line with the counts. Click it to open the details window (see below).
 5. **The route.** The ride's outline, with the start marked.
 6. **View on Strava** opens the activity's page in your browser.
-7. **Open charts** opens the chart window for this ride.
+7. **Open charts** (a small blue button) opens the chart window for this ride.
 8. **The ride's numbers.** Distance, time, climb, speed (or pace), power, heart rate and cadence: only what exists for
    the sport. Just below, "2 kudos, 2 PRs" is the same count the bar button shows.
 9. **Storage and requests.** How many of your activities have their full data stored on this computer, and how many of
    Strava's 1,000 daily requests are used today.
 10. **Kudos and comment alerts.** On or muted; click to switch.
-11. **Fitness, fatigue and form.** Three numbers, your FTP if set, a plain-words status and the plot. Hover any day.
-12. **Open chart** opens the full-size fitness chart.
+11. **Fitness, fatigue and form.** Three numbers, your FTP if set, `tomorrow -14` under Form (tomorrow's form with today's
+    work counted), a plain-words status and the plot. Hover any day.
+12. **Open chart** (a small blue button) opens the full-size fitness chart.
 13. **Training load versus last week.** How this week so far compares with last week up to the same moment.
 14. **Skipping today?** Five buttons (I'm tired, Bad weather, No time, Not feeling well, Planned rest day). The one
     you pick is marked on the calendar (16), and the coach leaves you alone that day.
@@ -51,6 +52,26 @@ Click the button. Each numbered part is explained below the picture.
     the single ones by a month; the triangle folds it.
 17. **Totals** for today, this week, this month and this year, per sport, with the total climb.
 18. **Powered by Strava**, in the bottom-right corner.
+
+## The menu
+
+The three dots next to the ride's name open the menu.
+
+![The menu](screenshots/menu-main.png)
+
+- **Refresh now**, and **Mute / Unmute kudos and comment alerts**.
+- **Refresh every ...** opens the interval choices, from every minute to every hour. Each row says how many of
+  Strava's daily requests it uses.
+
+![The refresh interval choices](screenshots/menu-interval.png)
+
+- **FTP** is a stepper in watts. **Estimate from my rides** fills it in from your rides; **Save** keeps it.
+
+![The FTP setting](screenshots/menu-ftp.png)
+
+- **Manage data ...** opens the data window, **How to use ...** this guide, **Update credentials or sign in ...** the
+  guided setup, **Open Strava API settings** your app's page on Strava, **About LapBar** the version and the links.
+- **Reset account ...** asks first, then removes your credentials, sign-in and cache. Your downloaded activities stay.
 
 ## Where do I find...
 

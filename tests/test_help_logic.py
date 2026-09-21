@@ -45,10 +45,11 @@ def test_image_addresses_are_resolved_against_the_docs_folder():
     assert js('imageSource("/x", "https://example.org/p.png")') == "https://example.org/p.png"
 
 
-def test_the_real_help_text_splits_into_text_and_its_five_pictures():
+def test_the_real_help_text_splits_into_text_and_its_eight_pictures():
     real = json.dumps((LOGIC.parent.parent / "docs" / "help.md").read_text())
     blocks = js(f"splitMarkdown({real})")
     images = [b["src"] for b in blocks if b["type"] == "image"]
-    assert images == ["screenshots/popup-guide.png", "screenshots/activity-window.png", "screenshots/fitness.png", "screenshots/chart.png",
-                      "screenshots/data-window.png"]
+    assert images == ["screenshots/popup-guide.png", "screenshots/menu-main.png", "screenshots/menu-interval.png",
+                      "screenshots/menu-ftp.png", "screenshots/activity-window.png", "screenshots/fitness.png",
+                      "screenshots/chart.png", "screenshots/data-window.png"]
     assert all((LOGIC.parent.parent / "docs" / src).is_file() for src in images)
