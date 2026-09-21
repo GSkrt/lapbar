@@ -132,10 +132,15 @@ def build(activities: list[dict], today: date, ftp: int = 0, days: int = OUTPUT_
         day += timedelta(days=1)
 
     now = rows[-1]
+    # Form is yesterday's fitness minus yesterday's fatigue, so it does not move during the day. What the work done
+    # so far today makes of tomorrow's form is known already: today's fitness minus today's fatigue.
+    tomorrow_form = fitness - fatigue
     then = rows[-29]["fitness"] if len(rows) > 28 else None          # four weeks ago
     change = round((now["fitness"] - then) / max(then, 10) * 100) if then is not None else None
     return {
         "current": {**now, "status": status_of(now["form"], now["fitness"])},
+        "tomorrow": {"date": (today + timedelta(days=1)).isoformat(), "form": round(tomorrow_form, 1),
+                     "status": status_of(tomorrow_form, fitness)},
         "days": rows[-days:],
         "sources": dict(sources),
         "ftp": ftp or None,
@@ -152,19 +157,22 @@ EPOCH = date(1970, 1, 1)
 def chart_doc(f: dict) -> dict:
     """The fitness series in the chart window's data format: dates on the x axis (as days since 1970)."""
     days = f["days"]
-    col = lambda key: [d[key] for d in days]                       # noqa: E731
+    tomorrow = f.get("tomorrow")
+    # One more day on the axis: tomorrow's form is already decided by today's work, so its bar is shown (marked as
+    # tomorrow); the lines and the load stop at today, because tomorrow's own training is not known.
+    col = lambda key, ahead=None: [d[key] for d in days] + ([ahead] if tomorrow else [])   # noqa: E731
+    dates = [date.fromisoformat(d["date"]) for d in days] + ([date.fromisoformat(tomorrow["date"])] if tomorrow else [])
     return {
         "v": 1, "kind": "fitness", "id": 0, "name": "Fitness, fatigue & form", "sport": None, "start": None,
-        "distance_km": 0, "points": len(days),
-        "x": {"key": "date", "label": "Date", "unit": "date",
-              "values": [(date.fromisoformat(d["date"]) - EPOCH).days for d in days]},
+        "distance_km": 0, "points": len(dates), "tomorrow": bool(tomorrow),
+        "x": {"key": "date", "label": "Date", "unit": "date", "values": [(d - EPOCH).days for d in dates]},
         "series": [
             {"key": "fitness", "label": "Fitness", "unit": "", "decimals": 1, "format": "number",
              "panel": "trend", "values": col("fitness")},
             {"key": "fatigue", "label": "Fatigue", "unit": "", "decimals": 1, "format": "number",
              "panel": "trend", "values": col("fatigue")},
             {"key": "form", "label": "Form", "unit": "", "decimals": 1, "format": "number",
-             "draw": "form", "values": col("form")},
+             "draw": "form", "values": col("form", tomorrow["form"] if tomorrow else None)},
             {"key": "load", "label": "Daily load", "unit": "", "decimals": 0, "format": "number",
              "draw": "bars", "values": col("load")},
         ],

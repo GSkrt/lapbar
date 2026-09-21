@@ -170,16 +170,38 @@ def test_fetch_looks_back_far_enough_for_fitness_even_early_in_the_year(monkeypa
 def test_chart_doc_has_dates_as_days_and_the_right_series_and_panels():
     out = fitness.build([act(n, 3600, suffer_score=60) for n in range(60)], TODAY, days=30)
     doc = fitness.chart_doc(out)
-    assert doc["kind"] == "fitness" and doc["x"]["unit"] == "date" and doc["points"] == 30
+    assert doc["kind"] == "fitness" and doc["x"]["unit"] == "date" and doc["points"] == 31 and doc["tomorrow"] is True
     xs = doc["x"]["values"]
-    assert xs == sorted(xs) and xs[-1] - xs[0] == 29                       # consecutive days
-    assert xs[-1] == (TODAY - date(1970, 1, 1)).days
+    assert xs == sorted(xs) and xs[-1] - xs[0] == 30                       # consecutive days: 30 days and tomorrow
+    assert xs[-2] == (TODAY - date(1970, 1, 1)).days and xs[-1] == xs[-2] + 1
     keys = [s["key"] for s in doc["series"]]
     assert keys == ["fitness", "fatigue", "form", "load"]
     assert {s["panel"] for s in doc["series"] if s["key"] in ("fitness", "fatigue")} == {"trend"}   # one shared axis
-    assert all(len(s["values"]) == 30 for s in doc["series"])
+    assert all(len(s["values"]) == 31 for s in doc["series"])
 
 
+def test_tomorrows_form_is_todays_fitness_minus_todays_fatigue_and_only_form_gets_a_bar():
+    out = fitness.build([act(n, 3600, suffer_score=60) for n in range(60)], TODAY, days=30)
+    now, tomorrow = out["days"][-1], out["tomorrow"]
+    assert tomorrow["date"] == (TODAY + timedelta(days=1)).isoformat()
+    assert tomorrow["form"] == pytest.approx(now["fitness"] - now["fatigue"], abs=0.11)      # rounded values
+    values = {s["key"]: s["values"] for s in fitness.chart_doc(out)["series"]}
+    assert values["form"][-1] == tomorrow["form"] and values["form"][-2] == now["form"]
+    assert values["fitness"][-1] is None and values["fatigue"][-1] is None and values["load"][-1] is None
+
+
+def test_a_hard_ride_today_moves_tomorrows_form_but_not_todays():
+    easy = [act(n, 3600, suffer_score=40) for n in range(1, 60)]
+    quiet = fitness.build(easy, TODAY)
+    hard = fitness.build(easy + [act(0, 14400, suffer_score=300)], TODAY)
+    assert hard["current"]["form"] == quiet["current"]["form"]                  # form does not move during the day
+    assert hard["tomorrow"]["form"] < quiet["tomorrow"]["form"] - 10            # but tomorrow shows the work done
+
+
+def test_a_rest_day_lets_tomorrow_recover():
+    days = [act(n, 5400, suffer_score=80) for n in range(1, 40)]                # ridden every day until yesterday
+    out = fitness.build(days, TODAY)
+    assert out["tomorrow"]["form"] > out["current"]["form"]                     # nothing today: fatigue falls faster
 def test_the_fitness_command_uses_only_stored_data_and_opens_the_window(monkeypatch, capsys):
     import json
     from lapbar import charts, cli

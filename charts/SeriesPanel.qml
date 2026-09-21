@@ -32,6 +32,7 @@ Item {
   property real viewStart: 0
   property real viewEnd: 1
   property int cursorIndex: 0
+  property int projectedIndex: -1                 // a bar that is tomorrow's (already decided, not yet lived): drawn as an outline
   property bool showCursor: true
 
   readonly property real gutter: 56            // room for the y-axis labels
@@ -172,8 +173,16 @@ Item {
           if (v0 === null || v0 === undefined) continue
           var bx = px(panel.xs[b]) - bw / 2
           var by = py(v0)
-          ctx.fillStyle = kind === "bars" ? Logic.rgba(panel.lineColor, 0.8)
-                                          : Logic.rgba(v0 >= 0 ? panel.positiveColor : panel.negativeColor, 0.85)
+          var barColor = kind === "bars" ? panel.lineColor : (v0 >= 0 ? panel.positiveColor : panel.negativeColor)
+          if (b === panel.projectedIndex) {
+            ctx.fillStyle = Logic.rgba(barColor, 0.28)
+            ctx.fillRect(bx, Math.min(by, base), bw, Math.max(1, Math.abs(by - base)))
+            ctx.strokeStyle = Logic.rgba(barColor, 0.95)
+            ctx.lineWidth = 1.5
+            ctx.strokeRect(bx + 0.75, Math.min(by, base) + 0.75, Math.max(1, bw - 1.5), Math.max(1, Math.abs(by - base)) - 1.5)
+            continue
+          }
+          ctx.fillStyle = Logic.rgba(barColor, kind === "bars" ? 0.8 : 0.85)
           ctx.fillRect(bx, Math.min(by, base), bw, Math.max(1, Math.abs(by - base)))
         }
       } else {

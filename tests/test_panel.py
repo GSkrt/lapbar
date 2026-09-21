@@ -133,3 +133,20 @@ def test_the_fitness_plot_fills_the_middle_column_and_the_credit_sits_in_the_pop
     assert PANEL.count("onImplicitHeightChanged: Qt.callLater(root.fitPlot)") == 3
     corner = PANEL[PANEL.index("the required credit, in the popup's bottom-right corner"):]
     assert "anchors.right: parent.right" in corner and "anchors.bottom: parent.bottom" in corner
+
+
+def test_tomorrows_form_is_in_the_bar_the_tooltip_the_popup_header_status_and_plot():
+    assert '"  Form " + root.signed(fn.form) + next' in PANEL and "\\u2192" in PANEL.split("var next")[1][:200]     # Form -1 → -14
+    assert 'lines.push("Tomorrow "' in PANEL                                                     # the tooltip
+    assert '"tomorrow " + root.signed(root.fitnessTomorrow.form)' in PANEL                       # under the Form number
+    assert "Tomorrow, with today's work counted" in PANEL                                        # the status line
+    assert "tomorrow: root.fitnessTomorrow" in PANEL                                             # the popup's plot gets the bar
+    plot = (Path(__file__).resolve().parent.parent / "FitnessPlot.qml").read_text()
+    assert "property var tomorrow" in plot and "slots" in plot and "plot.tomorrow" in plot
+
+
+def test_the_chart_window_draws_tomorrows_form_as_an_outline_and_starts_on_today():
+    root = Path(__file__).resolve().parent.parent / "charts"
+    panel, shell = (root / "SeriesPanel.qml").read_text(), (root / "shell.qml").read_text()
+    assert "projectedIndex" in panel and "strokeRect" in panel
+    assert "projectedIndex: win.doc && win.doc.tomorrow" in shell and "doc.tomorrow ? 2 : 1" in shell and '(tomorrow)' in shell

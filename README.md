@@ -199,7 +199,7 @@ still). It cycles through these frames, and skips any that have nothing to show:
 | This week | calendar icon, `76.5 km` | this week's total so far |
 | **Kudos and PRs** | thumbs-up `2`, medal `2` | **how many kudos and personal records your latest activity has**. Only shown when there are any. It updates on every refresh, and new kudos also raise a notification naming who gave them. |
 | Load vs last week | up arrow, `1h 55m` | ahead of (up), behind (down) or on par with last week at this point |
-| Form | up arrow, `Form +5` | your form today (up: fresh, down: tired) |
+| Form | up arrow, `Form -1 → -14` | your form today and, once today's work is counted, tomorrow's (up: fresh, down: tired). Just `Form +5` when the two round to the same number |
 
 **Hover** for the details: when Strava was last read, the activity's name, `2 kudos · 2 PRs`, the load comparison, your
 form, how many of today's Strava requests are used, and whether kudos alerts are muted or the last refresh failed.
@@ -340,6 +340,13 @@ At the top of the popup's middle column is the plot everything else is meant to 
 average of your training, about six weeks), **fatigue** (a fast average, about a week) and **form** (fitness minus
 fatigue as it stood yesterday: above zero you are fresh, below zero you are tired). Hover any day to read it, or
 click **Open chart** for the full-size version with the daily load underneath. The bar cycles a "Form +8" frame too.
+
+**Form today and tomorrow.** Form looks at yesterday, so it stays the same all day however hard you ride: a big ride
+this afternoon does not change this morning's number. What it does change is tomorrow's. LapBar shows that number
+beside today's, so the work you have done shows up right away: `tomorrow -14` under the Form number in the popup, a
+`Form -1 → -14` frame in the bar, a line in the bar's tooltip, and one more bar after today in both plots, drawn as an
+outline to mark it as tomorrow's. It is today's fitness minus today's fatigue, not a forecast; it changes only if you
+ride more today, and it assumes nothing about tomorrow's own training (the fitness and fatigue lines stop at today).
 
 <p align="center">
   <img src="docs/screenshots/fitness.png" alt="The fitness, fatigue and form chart: fitness and fatigue lines, form bars and daily load, with the values for the day under the cursor on the right" width="760">

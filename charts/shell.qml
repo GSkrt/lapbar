@@ -49,7 +49,7 @@ FloatingWindow {
       if (!doc || !doc.x || !doc.series || doc.series.length === 0) throw new Error("no series")
       viewStart = xs[0]
       viewEnd = xs[xs.length - 1]
-      if (doc.kind === "fitness") cursor = xs.length - 1          // "how am I now": start on the latest day
+      if (doc.kind === "fitness") cursor = xs.length - (doc.tomorrow ? 2 : 1)   // "how am I now": start on today
     } catch (e) {
       doc = null
       loadError = "Could not read the chart data."
@@ -119,7 +119,8 @@ FloatingWindow {
 
   function xText(x) {
     if (!doc) return ""
-    return doc.x.unit === "date" ? Logic.fmtDate(x, true) : Logic.fmtX(doc.x, x) + " " + doc.x.unit
+    if (doc.x.unit === "date") return Logic.fmtDate(x, true) + (doc.tomorrow && x === xHi ? " (tomorrow)" : "")
+    return Logic.fmtX(doc.x, x) + " " + doc.x.unit
   }
 
   function legendStats(series) {
@@ -327,6 +328,7 @@ FloatingWindow {
               viewStart: win.viewStart
               viewEnd: win.viewEnd
               cursorIndex: win.cursor
+              projectedIndex: win.doc && win.doc.tomorrow ? win.xs.length - 1 : -1
             }
           }
         }

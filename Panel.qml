@@ -651,7 +651,12 @@ Panel {
       out.push(root.icon(li.state === "ahead" ? "up" : (li.state === "behind" ? "down" : "even")) + "  "
                + (li.state === "even" ? "on par" : root.fmtLoad(Math.abs(li.delta))))
     var fn = root.fitnessNow
-    if (fn && fn.status !== "starting") out.push(root.icon(fn.form >= 0 ? "up" : "down") + "  Form " + root.signed(fn.form))
+    if (fn && fn.status !== "starting") {
+      // Form today, and (when it differs) what tomorrow's will be once today's work is counted: "Form -1 → -14".
+      var tm = root.fitnessTomorrow
+      var next = (tm && root.signed(tm.form) !== root.signed(fn.form)) ? "  \u2192  " + root.signed(tm.form) : ""
+      out.push(root.icon((tm ? tm.form : fn.form) >= 0 ? "up" : "down") + "  Form " + root.signed(fn.form) + next)
+    }
     return out
   }
 
@@ -662,6 +667,8 @@ Panel {
 
   readonly property var fitnessData: (root.summary && root.summary.fitness) ? root.summary.fitness : null
   readonly property var fitnessNow: root.fitnessData ? root.fitnessData.current : null
+  // Tomorrow's form, already decided by the work done up to now (today's fitness minus today's fatigue).
+  readonly property var fitnessTomorrow: (root.fitnessData && root.fitnessData.tomorrow) ? root.fitnessData.tomorrow : null
   readonly property bool darkTheme: Color.background.hslLightness < 0.5
   readonly property color fitnessColor: root.darkTheme ? "#3987e5" : "#2a78d6"
   readonly property color fatigueColor: root.darkTheme ? "#d95926" : "#eb6834"
@@ -716,6 +723,9 @@ Panel {
     if (root.fitnessNow && root.fitnessNow.status !== "starting")
       lines.push("Form " + root.signed(root.fitnessNow.form) + " (" + (root.fitnessStatusName[root.fitnessNow.status] || "").toLowerCase()
                  + ") \u00b7 fitness " + Math.round(root.fitnessNow.fitness) + " \u00b7 fatigue " + Math.round(root.fitnessNow.fatigue))
+    if (root.fitnessNow && root.fitnessNow.status !== "starting" && root.fitnessTomorrow)
+      lines.push("Tomorrow " + root.signed(root.fitnessTomorrow.form) + " ("
+                 + (root.fitnessStatusName[root.fitnessTomorrow.status] || "").toLowerCase() + ") with today's work counted")
     if (root.budgetLine !== "") lines.push(root.budgetLine)
     if (root.muted) lines.push("Kudos alerts muted")
     if (root.errorCode) lines.push("Last refresh failed: " + root.errorMessage)
@@ -1978,11 +1988,20 @@ Panel {
                 }
 
                 Text {
-                  text: day ? (modelData.key === "form" ? root.signed(day.form) : String(Math.round(day[modelData.key]))) : "\u2013"
+                  text: day ? (modelData.key === "form" ? root.signed(day.form)
+                                                          : (day[modelData.key] === undefined ? "\u2013" : String(Math.round(day[modelData.key])))) : "\u2013"
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.display
                   font.bold: true
+                }
+
+                Text {                                          // what tomorrow's form will be, with today's work counted
+                  visible: modelData.key === "form" && !!root.fitnessTomorrow && fitnessPlot.hoverIndex < 0
+                  text: root.fitnessTomorrow ? "tomorrow " + root.signed(root.fitnessTomorrow.form) : ""
+                  color: root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
                 }
               }
             }
@@ -2010,9 +2029,16 @@ Panel {
             wrapMode: Text.WordWrap
             text: {
               var d = fitnessPlot.shownDay
+              if (fitnessPlot.hoverIndex >= 0 && d && d.tomorrow)
+                return Qt.formatDate(new Date(d.date + "T12:00:00"), "ddd d MMM") + " \u00b7 tomorrow's form, with today's work counted"
               if (fitnessPlot.hoverIndex >= 0 && d)
                 return Qt.formatDate(new Date(d.date + "T12:00:00"), "ddd d MMM") + " \u00b7 load " + Math.round(d.load)
-              return root.fitnessNow ? (root.fitnessStatusText[root.fitnessNow.status] || "") : ""
+              var text = root.fitnessNow ? (root.fitnessStatusText[root.fitnessNow.status] || "") : ""
+              var tm = root.fitnessTomorrow
+              // when today's work changes the picture, say so: this is the number that shows what you have done
+              if (text !== "" && tm && root.fitnessNow.status !== "starting" && tm.status !== root.fitnessNow.status)
+                text += "\nTomorrow, with today's work counted: " + (root.fitnessStatusName[tm.status] || "").toLowerCase() + "."
+              return text
             }
             color: root.foreground
             font.family: root.fontFamily
@@ -2026,6 +2052,7 @@ Panel {
             height: root.plotMinHeight
             onWidthChanged: Qt.callLater(root.fitPlot)
             days: root.fitnessData ? root.fitnessData.days.slice(-90) : []
+            tomorrow: root.fitnessTomorrow
             fitnessColor: root.fitnessColor
             fatigueColor: root.fatigueColor
             textColor: String(root.foreground)

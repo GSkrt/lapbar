@@ -13,7 +13,7 @@ The button in your bar shows one short line and changes every 6 seconds. Frames 
 | This week | calendar icon, 76.5 km | this week's total so far |
 | **Kudos and PRs** | thumbs-up 2, medal 2 | **how many kudos and personal records your latest activity has**. Shown only when there are any. It updates on every refresh, and new kudos also raise a notification naming who gave them. |
 | Load vs last week | up arrow, 1h 55m | ahead of, behind or on par with last week at this point |
-| Form | up arrow, Form +5 | your form today (up: fresh, down: tired) |
+| Form | up arrow, Form -1 → -14 | your form today and, with today's work counted, tomorrow's |
 
 **Hover** the button for details: when Strava was last read, the activity's name, its kudos and PRs, the load
 comparison, your form, and how many of today's Strava requests are used.
@@ -112,7 +112,7 @@ Open it with *Open chart* above the fitness plot in the popup.
 - **Top:** fitness (blue, slow, about six weeks) and fatigue (orange, fast, about a week) on one axis. Every hard day
   makes fatigue jump and it drops back within about a week, while fitness climbs slowly with regular riding.
 - **Middle:** form, fitness minus fatigue as it stood yesterday. Green bars (above zero) mean fresh, orange bars (below
-  zero) mean tired.
+  zero) mean tired. The last bar, drawn as an outline, is tomorrow's form with today's work counted.
 - **Bottom:** the load of each day.
 - **Right:** the values for the day under the cursor. Click a name to hide that measure.
 - **Controls:** move the mouse or press the left and right arrows (Shift for bigger steps); scroll or press plus and
