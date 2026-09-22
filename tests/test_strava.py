@@ -255,3 +255,14 @@ def test_today_and_month_totals_include_the_climb(monkeypatch):
 def test_days_carry_their_climb():
     days = strava._days([act("2026-09-18", 1000, 120.4), act("2026-09-18", 1000, 30.4), act("2026-09-14", 1000, 0)])
     assert days["2026-09-18"]["elevation_m"] == 151 and days["2026-09-14"]["elevation_m"] == 0
+
+
+def test_an_activitys_own_title_is_cleaned_the_same_way_as_a_kudos_name_or_a_comment():
+    dirty = act("2026-09-18", 1000, 10, name="Evening spin\x1b[31m\x00 ride")
+    assert strava._latest(dirty)["name"] == "Evening spin[31m ride"
+    assert strava._listed(dirty)["name"] == "Evening spin[31m ride"
+
+
+def test_a_missing_or_blank_activity_title_stays_out_of_the_listed_fields():
+    assert strava._latest(act("2026-09-18", 1000, 10, name=None))["name"] is None
+    assert "name" not in strava._listed(act("2026-09-18", 1000, 10, name=None))

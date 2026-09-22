@@ -7,9 +7,10 @@ import urllib.request
 from . import ratelimit
 
 # A reply is never buffered past these caps before it is parsed, whatever it claims its own size is (a
-# Content-Length header is trusted only to fail fast; the cap is enforced on the bytes actually read). 8 MiB
-# covers every call except the activity streams, which can legitimately be large and pass their own `max_bytes`.
-DEFAULT_MAX_BYTES = 8 * 1024 * 1024
+# Content-Length header is trusted only to fail fast; the cap is enforced on the bytes actually read). 16 MiB
+# covers every call except the activity streams, which can legitimately be large and pass their own `max_bytes`
+# (see streams.STREAMS_MAX_BYTES: a real multi-day continuous recording can run to hundreds of MiB).
+DEFAULT_MAX_BYTES = 16 * 1024 * 1024
 ERROR_BODY_MAX_BYTES = 64 * 1024          # Strava's error bodies are a small JSON object; only body[:200] is kept anyway
 
 

@@ -8,20 +8,20 @@ Exit status 1: something changed; the report says what. A monthly GitHub workflo
 Strava's API shows up as a failed run instead of a surprise. Also prints a reminder when the announced base URL
 change (see lapbar/stravaapi.py) is near.
 """
-import json
 import sys
-import urllib.request
 from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lapbar import stravaapi  # noqa: E402
+from lapbar.http import request_json  # noqa: E402
+
+SPEC_MAX_BYTES = 8 * 1024 * 1024   # Strava's swagger.json is well under 1 MiB today; generous room to grow
 
 
 def main() -> int:
-    with urllib.request.urlopen(stravaapi.SPEC_URL, timeout=30) as resp:
-        spec = json.load(resp)
+    spec = request_json(stravaapi.SPEC_URL, max_bytes=SPEC_MAX_BYTES)
     problems, notes = stravaapi.check_spec(spec)
     print(f"Strava API {stravaapi.API_VERSION}, spec {(spec.get('info') or {}).get('version')} "
           f"(LapBar checked against {stravaapi.API_SPEC_VERSION} on {stravaapi.SPEC_CHECKED_ON})")

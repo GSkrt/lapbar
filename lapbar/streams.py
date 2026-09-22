@@ -184,7 +184,12 @@ def detail(activity: dict):
     return path
 
 
-STREAMS_MAX_BYTES = 64 * 1024 * 1024   # the one call that can legitimately be large (multi-day activities, GPS included)
+
+# The one call that can legitimately be large: a continuous ultra-endurance recording (a multi-day bikepacking
+# race, say) at one GPS-tagged sample a second, across all 9 possible streams, is roughly 200 bytes/sample of
+# JSON (generous). 512 MiB covers about a month of that without a break -- far past any real single Strava
+# activity -- while still being a finite ceiling against a genuinely malformed or runaway response.
+STREAMS_MAX_BYTES = 512 * 1024 * 1024
 
 
 def _download(token: str, activity: dict) -> dict:

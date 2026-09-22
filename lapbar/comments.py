@@ -11,24 +11,18 @@ the activity on Strava, where the reply is written.
 """
 import html
 import json
-import re
 from pathlib import Path
 
 from . import config, stravaapi
 from .http import HttpError, request_json
+from .text import MAX_TEXT, clean_text  # noqa: F401 -- re-exported: cli.py and older tests import them from here
 
 COMMENTS_URL = stravaapi.url("activity_comments") + "?per_page=200"
 ATHLETE_URL = stravaapi.url("athlete")
 RECENT = 30          # only the newest activities are watched for new comments (about a month of riding)
 SEED_LIMIT = 5       # first-time text look-ups per fetch, so the very first run stays cheap
-MAX_TEXT = 1000      # a comment is kept up to this long (the popup shows less)
 POPUP_LINES = 3      # comments shown in one popup
 POPUP_CHARS = 240
-
-
-def clean_text(text) -> str:
-    """Comment text as one safe string: no control characters, not endless."""
-    return re.sub(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]", "", str(text or "")).strip()[:MAX_TEXT]
 
 
 def _one(c: dict) -> dict:

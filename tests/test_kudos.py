@@ -121,3 +121,18 @@ def test_widening_the_watch_does_not_announce_old_kudos_as_new(api):
     api.by_activity[2] = ["Ana K.", "Xen Y."]
     events, _, _ = kudos.track("t", listed, previous, seed_limit=0)
     assert [(e["count"], e["from"]) for e in events] == [(1, ["Xen Y."])]
+
+
+# ---- a kudos giver's name is cleaned at the source, like a comment's, not only at the popup
+
+def test_a_kudos_givers_name_is_cleaned_before_it_is_ever_cached(monkeypatch):
+    def fake(url, token=None, **kw):
+        return [{"firstname": "Anna\x1b[31m", "lastname": "B.\x00"}]
+    monkeypatch.setattr(kudos, "request_json", fake)
+    assert kudos.kudoers("t", 1) == ["Anna[31m B."]         # no control bytes, even before any popup is involved
+
+
+def test_an_extremely_long_name_is_capped_at_the_source(monkeypatch):
+    from lapbar import text
+    monkeypatch.setattr(kudos, "request_json", lambda url, token=None, **kw: [{"firstname": "x" * 5000, "lastname": "Y"}])
+    assert len(kudos.kudoers("t", 1)[0]) == text.MAX_TEXT

@@ -10,6 +10,7 @@ import html
 
 from . import stravaapi
 from .http import HttpError, request_json
+from .text import clean_text
 
 KUDOS_URL = stravaapi.url("activity_kudos") + "?per_page=200"
 RECENT = 30      # only the newest activities are watched for new kudos (about a month of riding)
@@ -21,7 +22,9 @@ def kudoers(token: str, activity_id: int) -> list[str]:
     people = request_json(KUDOS_URL.format(id=activity_id), token=token)
     names = []
     for p in people if isinstance(people, list) else []:
-        name = f"{p.get('firstname', '')} {p.get('lastname', '')}".strip()
+        # Cleaned here, at the source, like comments: everything downstream (the cache, details/<id>.json,
+        # `lapbar fetch --print`, the notification) then only ever sees a name with no control characters in it.
+        name = clean_text(f"{p.get('firstname', '')} {p.get('lastname', '')}".strip())
         names.append(name or "Someone")
     return names
 

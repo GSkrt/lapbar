@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from .. import auth, comments, details, fitness, history, kudos, raw, sports, stravaapi, streams
 from ..http import HttpError, request_json
+from ..text import clean_text
 
 ACTIVITIES_URL = stravaapi.url("athlete_activities")
 PAGE_SIZE = 200
@@ -155,7 +156,7 @@ def _latest(a: dict, route_points: int = ROUTE_POINTS) -> dict:
         "start": a.get("start_date_local"),
         "sport": sport,
         "family": sports.family(sport),
-        "name": a.get("name"),
+        "name": clean_text(a.get("name")) or None,   # the activity's own title: cleaned, like a kudos name or a comment
         "distance_km": round(a.get("distance", 0) / 1000, 2),
         "elevation_m": round(a.get("total_elevation_gain", 0)),
         "moving_time_s": a.get("moving_time", 0),
