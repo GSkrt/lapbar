@@ -186,16 +186,27 @@ def detail(activity: dict):
 
 
 # The one call that can legitimately be large: a continuous ultra-endurance recording (a multi-day bikepacking
-# race, say) at one GPS-tagged sample a second, across all 9 possible streams, is roughly 200 bytes/sample of
-# JSON (generous). 512 MiB covers about a month of that without a break -- far past any real single Strava
-# activity -- while still being a finite ceiling against a genuinely malformed or runaway response.
-STREAMS_MAX_BYTES = 512 * 1024 * 1024
+# race, say) at one GPS-tagged sample a second, across all 9 possible streams.
+#
+# A byte cap alone is not enough to bound the memory this actually costs once decoded: json.loads() turns each
+# number into its own Python object, and a response built to be dense (many small numbers, minimal separators)
+# decodes to several times its own text size -- measured (see http.py) at roughly 4-5x for both a realistic
+# activity-streams-shaped payload and an adversarial one, so a byte cap alone would let something sized for "a
+# long ride" balloon to gigabytes once parsed. MAX_NUMBERS is the real bound: it stops decoding the moment more
+# than this many individual samples have been seen, so peak memory tracks this number, not how large or how
+# densely-packed the response turns out to be. 5,000,000 numbers is comfortably above 9 streams x 2 days
+# continuous at one sample a second (about 1,555,200) with real headroom for GPS's two numbers per point, and
+# measured at roughly 150-200 MB peak to decode -- safe for a background widget -- whichever of the two limits
+# below is reached first, the response is abandoned rather than fully decoded.
+STREAMS_MAX_BYTES = 64 * 1024 * 1024
+STREAMS_MAX_NUMBERS = 5_000_000
 
 
 def _download(token: str, activity: dict) -> dict:
     """Ask Strava once, keep the complete answer in the raw archive, and return it ({} if there are no streams)."""
     try:
-        answer = request_json(STREAMS_URL.format(id=activity["id"]), token=token, max_bytes=STREAMS_MAX_BYTES)
+        answer = request_json(STREAMS_URL.format(id=activity["id"]), token=token, max_bytes=STREAMS_MAX_BYTES,
+                              max_numbers=STREAMS_MAX_NUMBERS)
     except HttpError as e:
         if e.status != 404:
             raise

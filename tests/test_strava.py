@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from lapbar import http
 from lapbar.http import HttpError
 from lapbar import comments, details, kudos, streams
 from lapbar.providers import strava
@@ -94,6 +95,24 @@ def test_missing_streams_404_gives_empty_profile(monkeypatch):
     monkeypatch.setattr(streams, "request_json",
                         lambda url, token=None, **kw: (_ for _ in ()).throw(HttpError(404, "not found")))
     assert strava.fetch(FakeTokens(), now=datetime(2026, 9, 19))["latest"]["elevation_profile"] == []
+
+
+def test_an_oversized_stream_response_skips_the_profile_but_does_not_fail_the_whole_refresh(monkeypatch):
+    # Regression: an exceptionally large single activity (near streams.STREAMS_MAX_BYTES/STREAMS_MAX_NUMBERS,
+    # the memory-safety caps) used to propagate straight out of fetch() and fail kudos, totals and fitness too,
+    # over one activity's chart data. It must now be contained to the one field, like the 404 case above and the
+    # records fetch right after it already were.
+    ride = act("2026-09-18", 12000, 120, kudos_count=4, comment_count=1)
+
+    monkeypatch.setattr(strava, "request_json", lambda url, token=None, **kw: [ride])
+    monkeypatch.setattr(kudos, "request_json", lambda url, token=None, **kw: [])
+    monkeypatch.setattr(comments, "request_json", lambda url, token=None, **kw: [])
+    for exc in (http.ResponseTooLarge(1000), http.TooManyValues(1000), HttpError(500, "upstream error")):
+        monkeypatch.setattr(streams, "request_json", lambda url, token=None, **kw: (_ for _ in ()).throw(exc))
+        summary = strava.fetch(FakeTokens(), now=datetime(2026, 9, 19))
+        assert "elevation_profile" not in summary["latest"]
+        assert (summary["latest"]["kudos"], summary["latest"]["comments"]) == (4, 1)     # the rest of the ride is intact
+        assert summary["week"]["count"] == 1 and "fitness" in summary                     # and so is the rest of the summary
 
 
 def test_route_is_normalised_shape_without_coordinates():

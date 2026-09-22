@@ -298,8 +298,13 @@ def fetch(
         if prev.get("id") == latest["id"] and "elevation_profile" in prev:
             latest["elevation_profile"] = prev["elevation_profile"]
         else:
-            # One request per new ride; the full series is stored for the charts window too.
-            latest["elevation_profile"] = streams.elevation_profile(streams.get(token_source.access_token(), latest))
+            # One request per new ride; the full series is stored for the charts window too. An exceptionally
+            # large single activity (near streams.STREAMS_MAX_BYTES/STREAMS_MAX_NUMBERS) must not fail the whole
+            # refresh over one profile: skip it this time, same as the records fetch just below.
+            try:
+                latest["elevation_profile"] = streams.elevation_profile(streams.get(token_source.access_token(), latest))
+            except (HttpError, OSError):
+                pass
 
     if latest and (latest["prs"] or latest["achievements"]):
         # Which records the newest ride has, by name: one request, stored on disk and reused while the counts hold.

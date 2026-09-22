@@ -1,4 +1,5 @@
 """request_json never buffers more than its byte cap, on a claimed size or on the actual bytes, before parsing."""
+import json
 import io
 import urllib.error
 
@@ -140,3 +141,82 @@ def test_a_normal_sized_error_body_still_comes_through_as_an_httperror(monkeypat
     with pytest.raises(http.HttpError) as exc:
         http.request_json("https://example/x")
     assert exc.value.status == 404 and "Not Found" in str(exc.value)
+
+
+# ---- max_numbers: a byte cap alone does not bound decoded memory, since json.loads() turns each number into
+# its own Python object; this bounds what actually drives that, by count, independent of how the bytes are laid out
+
+def test_a_response_within_the_number_cap_decodes_normally(monkeypatch):
+    monkeypatch.setattr(http.urllib.request, "urlopen", lambda req, timeout: FakeResponse(b'{"a": [1, 2, 3.5]}'))
+    assert http.request_json("https://example/x", max_numbers=10) == {"a": [1, 2, 3.5]}
+
+
+def test_a_response_with_too_many_numbers_is_abandoned_rather_than_fully_decoded(monkeypatch):
+    body = ('{"a": [' + ",".join(str(i) for i in range(1000)) + "]}").encode()
+    monkeypatch.setattr(http.urllib.request, "urlopen", lambda req, timeout: FakeResponse(body))
+    with pytest.raises(http.TooManyValues):
+        http.request_json("https://example/x", max_bytes=len(body) + 10, max_numbers=50)
+
+
+def test_the_count_limit_is_reached_exactly_not_off_by_one():
+    ok = http._counted_loads(b"[" + b",".join(b"1" for _ in range(10)) + b"]", 10)
+    assert ok == [1] * 10
+    with pytest.raises(http.TooManyValues):
+        http._counted_loads(b"[" + b",".join(b"1" for _ in range(11)) + b"]", 10)
+
+
+def test_raising_from_inside_the_hook_aborts_decoding_immediately_with_the_exact_exception_not_a_wrapped_one():
+    # The premise the whole defence rests on: if json.loads() caught and re-wrapped this in some other exception,
+    # or kept building the structure before checking, the count would not actually bound anything.
+    seen = []
+
+    class Track(Exception):
+        pass
+
+    def hook(token):
+        seen.append(token)
+        if len(seen) > 3:
+            raise Track("stop")
+        return int(token)
+
+    with pytest.raises(Track):
+        json.loads(b"[" + b",".join(str(i).encode() for i in range(1_000_000)) + b"]", parse_int=hook)
+    assert len(seen) == 4                                     # stopped right at the limit, not after finishing
+
+
+def test_peak_memory_during_an_abort_is_far_below_what_fully_decoding_the_same_response_would_cost():
+    import tracemalloc
+    huge = ('[' + ",".join("1" for _ in range(20_000_000)) + ']').encode()      # far more numbers than the limit
+
+    tracemalloc.start()
+    full = json.loads(huge)                                                     # the uncapped baseline: really decode it all
+    _, full_peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    del full
+
+    tracemalloc.start()
+    try:
+        with pytest.raises(http.TooManyValues):
+            http._counted_loads(huge, 100_000)                                  # 200x fewer numbers allowed
+        _, capped_peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    # The capped peak's floor is the one-time cost of turning the input bytes into a string, which happens
+    # before any number is decoded and so does not shrink further; decoding 200x fewer numbers still measures a
+    # clear, repeatable win over the uncapped baseline.
+    assert capped_peak < full_peak / 3
+
+
+def test_a_lying_content_length_does_not_bypass_the_number_cap_either(monkeypatch):
+    body = ('[' + ",".join(str(i) for i in range(500)) + ']').encode()
+    monkeypatch.setattr(http.urllib.request, "urlopen",
+                        lambda req, timeout: FakeResponse(body, headers={"Content-Length": "5"}))
+    with pytest.raises(http.TooManyValues):
+        http.request_json("https://example/x", max_bytes=len(body) + 10, max_numbers=10)
+
+
+def test_streams_own_number_cap_is_generous_but_finite_and_smaller_than_its_old_byte_only_cap():
+    from lapbar import streams
+    assert 0 < streams.STREAMS_MAX_NUMBERS < 50_000_000
+    assert streams.STREAMS_MAX_BYTES < 512 * 1024 * 1024                        # no longer relying on bytes alone
