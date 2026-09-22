@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import charts, config, export, fetchlog, history, prefs, ratelimit, raw
+from . import charts, config, export, fetchlog, history, prefs, ratelimit, raw, system
 
 MANAGE_DIR = Path(__file__).resolve().parent.parent / "manage"
 LAUNCHER = Path(__file__).resolve().parent.parent / "bin" / "lapbar"
@@ -89,7 +89,7 @@ def open_window(theme: dict | None = None) -> int:
     """Start the data window and float it. Returns the window process id."""
     env = {**os.environ, **(theme or {}), "LAPBAR_BIN": str(LAUNCHER), "LAPBAR_ASSETS": str(charts.ASSETS_DIR),
            "LAPBAR_PYTHON": sys.executable}         # the window runs lapbar with the interpreter that started it
-    proc = subprocess.Popen(["quickshell", "-p", str(MANAGE_DIR)], env=env, stdin=subprocess.DEVNULL,
+    proc = subprocess.Popen([system.tool("quickshell"), "-p", str(MANAGE_DIR)], env=env, stdin=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     charts.float_window(proc.pid)
     return proc.pid

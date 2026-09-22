@@ -67,7 +67,9 @@ FloatingWindow {
   Process {
     id: loader
     running: true
-    command: [Quickshell.env("LAPBAR_PYTHON") || "/usr/bin/python3", "-I", Quickshell.env("LAPBAR_BIN") || "lapbar",
+    // LAPBAR_BIN is always set by `lapbar activity <id>` (see activitywin.py); no fallback that would search $PATH
+    // for a same-named binary, unlike manage/shell.qml's own launcher property, which this now matches.
+    command: [Quickshell.env("LAPBAR_PYTHON") || "/usr/bin/python3", "-I", Quickshell.env("LAPBAR_BIN") || "",
               "details", Quickshell.env("LAPBAR_ACTIVITY") || "0"]
     stdout: StdioCollector { id: loaded; waitForEnd: true }
     onExited: {

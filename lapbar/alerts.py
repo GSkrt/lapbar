@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import comments, kudos
+from . import comments, kudos, system
 
 ORANGE = "#FC5200"                       # Strava's colour, as its brand guidelines ask for links
 LINK_TEXT = "View on Strava"
@@ -43,7 +43,7 @@ def compose(kind: str, event: dict) -> dict:
 def show(kind: str, event: dict, timeout_ms: int = POPUP_MS) -> str | None:
     """Show the popup through the desktop's notification service and wait for it. Returns the action chosen, or None."""
     n = compose(kind, event)
-    command = ["notify-send", "-a", "lapbar", "-u", "normal", "-t", str(timeout_ms), n["title"], n["body"]]
+    command = [system.tool("notify-send"), "-a", "lapbar", "-u", "normal", "-t", str(timeout_ms), n["title"], n["body"]]
     for action in n["actions"]:
         command += ["-A", f"{action['key']}={action['label']}"]
     try:
@@ -53,7 +53,7 @@ def show(kind: str, event: dict, timeout_ms: int = POPUP_MS) -> str | None:
     chosen = done.stdout.strip()
     if chosen == "default" and n["url"]:
         try:
-            subprocess.Popen(["xdg-open", n["url"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            subprocess.Popen([system.tool("xdg-open"), n["url"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL, start_new_session=True)
         except OSError:
             pass

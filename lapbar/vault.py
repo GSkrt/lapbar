@@ -11,7 +11,7 @@ import json
 import os
 import subprocess
 
-from . import config
+from . import config, system
 
 SERVICE = "lapbar"
 TIMEOUT = 8  # seconds; a locked keyring can wait for an unlock prompt
@@ -24,7 +24,10 @@ class VaultUnavailable(RuntimeError):
 def _run(args: list[str], stdin: str | None = None) -> subprocess.CompletedProcess:
     if os.environ.get("LAPBAR_NO_KEYRING"):  # opt out: use the private file instead
         raise FileNotFoundError("keyring disabled by LAPBAR_NO_KEYRING")
-    return subprocess.run(["secret-tool", *args], input=stdin, capture_output=True, text=True, timeout=TIMEOUT)
+    # secret-tool handles the Strava client secret and the sign-in tokens, so it is resolved to Omarchy's own
+    # copy rather than trusting whatever a $PATH search would find first (see system.py).
+    return subprocess.run([system.tool("secret-tool"), *args], input=stdin, capture_output=True, text=True,
+                          timeout=TIMEOUT)
 
 
 class Keyring:

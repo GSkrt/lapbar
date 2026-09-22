@@ -174,3 +174,9 @@ def test_third_party_or_echoed_names_are_never_rendered_as_markup():
     assert "textFormat: Text.PlainText" in day_picker
     header = PANEL[PANEL.index("id: headerText"):PANEL.index('text: root.shown ? root.shown.name')]
     assert "textFormat: Text.PlainText" in header
+
+
+def test_the_details_window_never_falls_back_to_a_path_searched_launcher_name():
+    shell = (Path(__file__).resolve().parent.parent / "activity" / "shell.qml").read_text()
+    assert 'Quickshell.env("LAPBAR_BIN") || "lapbar"' not in shell
+    assert 'Quickshell.env("LAPBAR_BIN") || ""' in shell

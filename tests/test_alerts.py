@@ -1,5 +1,6 @@
 """Popups for kudos and comments: one per activity, each ending with an orange View on Strava link to its activity."""
 import json
+import os
 
 import pytest
 
@@ -52,7 +53,8 @@ def test_clicking_the_popup_opens_the_activity_and_no_click_opens_nothing(monkey
     monkeypatch.setattr(alerts.subprocess, "run", lambda cmd, **kw: shown.append(cmd) or Done())
     monkeypatch.setattr(alerts.subprocess, "Popen", lambda cmd, **kw: opened.append(cmd))
     assert alerts.show("comments", COMMENT) == "default"
-    assert opened == [["xdg-open", URL]] and "default=View on Strava" in shown[0] and "-A" in shown[0]
+    assert len(opened) == 1 and os.path.basename(opened[0][0]) == "xdg-open" and opened[0][1] == URL
+    assert "default=View on Strava" in shown[0] and "-A" in shown[0]
     Done.stdout = "\n"
     opened.clear()
     assert alerts.show("kudos", KUDOS) is None and opened == []

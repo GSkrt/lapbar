@@ -1,4 +1,5 @@
 """The in-app how-to: docs/help.md drawn by help/shell.qml, opened from the popup's menu."""
+import os
 import re
 from pathlib import Path
 
@@ -50,7 +51,7 @@ def test_the_howto_command_starts_the_window_with_the_guide_and_the_screenshots(
     monkeypatch.setattr(helpwin.charts, "float_window", lambda pid, **kw: seen.update(size=kw.get("size")))
     with pytest.raises(SystemExit):
         cli.main(["howto", "--fg", "#fff", "--font", "Mono"])
-    assert seen["cmd"][:2] == ["quickshell", "-p"] and seen["cmd"][2].endswith("/help")
+    assert os.path.basename(seen["cmd"][0]) == "quickshell" and seen["cmd"][1] == "-p" and seen["cmd"][2].endswith("/help")
     assert seen["env"]["LAPBAR_HELP_FILE"].endswith("docs/help.md") and seen["env"]["LAPBAR_DOCS"].endswith("/docs")
     assert seen["env"]["LAPBAR_FG"] == "#fff" and seen["env"]["LAPBAR_FONT"] == "Mono" and seen["size"] == helpwin.WINDOW_SIZE
 

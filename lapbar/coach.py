@@ -32,7 +32,7 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
-from . import config, excuses, prefs
+from . import config, excuses, prefs, system
 
 MODES = ("off", "motivational", "drill")
 TONES = ("motivational", "drill")
@@ -224,7 +224,7 @@ def tick(summary: dict, now: datetime | None = None, settings: dict | None = Non
 def show(event: dict, day: str, timeout_ms: int = POPUP_MS) -> str | None:
     """Show a popup through the desktop's notification service and wait for it. A button press is recorded as that day's
     excuse. Returns the excuse key that was chosen, or None."""
-    command = ["notify-send", "-a", "lapbar", "-u", "normal", "-t", str(timeout_ms), event["title"], event["body"]]
+    command = [system.tool("notify-send"), "-a", "lapbar", "-u", "normal", "-t", str(timeout_ms), event["title"], event["body"]]
     for a in event.get("actions") or []:
         command += ["-A", f"{a['key']}={a['label']}"]
     try:

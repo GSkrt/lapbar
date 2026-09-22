@@ -9,6 +9,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import system
+
 INSTALL_HINT = "No folder chooser found. Install one: omarchy pkg add zenity (or kdialog, or yad)."
 
 
@@ -19,11 +21,11 @@ class NoChooser(RuntimeError):
 def _command(title: str, start: str) -> list[str] | None:
     start_dir = start if start.endswith("/") else start + "/"
     if shutil.which("zenity"):
-        return ["zenity", "--file-selection", "--directory", "--title", title, "--filename", start_dir]
+        return [system.tool("zenity"), "--file-selection", "--directory", "--title", title, "--filename", start_dir]
     if shutil.which("kdialog"):
-        return ["kdialog", "--getexistingdirectory", start_dir, "--title", title]
+        return [system.tool("kdialog"), "--getexistingdirectory", start_dir, "--title", title]
     if shutil.which("yad"):
-        return ["yad", "--file", "--directory", "--title", title, "--filename", start_dir]
+        return [system.tool("yad"), "--file", "--directory", "--title", title, "--filename", start_dir]
     return None
 
 

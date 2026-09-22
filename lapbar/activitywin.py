@@ -8,7 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import charts
+from . import charts, system
 
 ROOT = Path(__file__).resolve().parent.parent
 ACTIVITY_DIR = ROOT / "activity"
@@ -20,7 +20,7 @@ def open_window(activity_id: int, theme: dict | None = None) -> int:
     """Start the details window for an activity and float it. Returns the window process id."""
     env = {**os.environ, **(theme or {}), "LAPBAR_ACTIVITY": str(int(activity_id)), "LAPBAR_BIN": str(LAUNCHER),
            "LAPBAR_ASSETS": str(charts.ASSETS_DIR), "LAPBAR_PYTHON": sys.executable}
-    proc = subprocess.Popen(["quickshell", "-p", str(ACTIVITY_DIR)], env=env, stdin=subprocess.DEVNULL,
+    proc = subprocess.Popen([system.tool("quickshell"), "-p", str(ACTIVITY_DIR)], env=env, stdin=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     charts.float_window(proc.pid, size=WINDOW_SIZE)
     return proc.pid

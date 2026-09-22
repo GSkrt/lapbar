@@ -1,5 +1,6 @@
 """The DuckDB export, the preferences and fetch log behind the data window, and the history limit."""
 import json
+import os
 import stat
 from datetime import datetime, timedelta, timezone
 
@@ -327,7 +328,7 @@ def test_the_window_starts_its_own_quickshell_process(monkeypatch):
     monkeypatch.setattr(manage.subprocess, "Popen", lambda cmd, **kw: seen.update(cmd=cmd, env=kw["env"]) or Proc())
     monkeypatch.setattr(manage.charts, "float_window", lambda pid, **kw: None)
     assert manage.open_window({"LAPBAR_FG": "#fff"}) == 5
-    assert seen["cmd"][:2] == ["quickshell", "-p"] and seen["cmd"][2].endswith("/manage")
+    assert os.path.basename(seen["cmd"][0]) == "quickshell" and seen["cmd"][1] == "-p" and seen["cmd"][2].endswith("/manage")
     assert seen["env"]["LAPBAR_FG"] == "#fff" and seen["env"]["LAPBAR_BIN"].endswith("bin/lapbar")
 
 
@@ -469,7 +470,8 @@ def test_the_folder_chooser_uses_zenity_and_returns_the_folder(monkeypatch):
         return Done()
     monkeypatch.setattr(pick.subprocess, "run", fake_run)
     assert pick.choose_folder("~", "Folder for the DuckDB file") == "/home/me/Documents/data"
-    assert seen["cmd"][:3] == ["zenity", "--file-selection", "--directory"] and "Folder for the DuckDB file" in seen["cmd"]
+    assert os.path.basename(seen["cmd"][0]) == "zenity" and seen["cmd"][1:3] == ["--file-selection", "--directory"]
+    assert "Folder for the DuckDB file" in seen["cmd"]
 
 
 def test_a_cancelled_dialog_is_not_an_error_and_a_missing_start_folder_falls_back(monkeypatch, tmp_path):

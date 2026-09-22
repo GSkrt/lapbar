@@ -1,5 +1,6 @@
 """Nudges to get off the chair: data-based, quiet in recovery, paused on request, capped, and never about bodies."""
 import json
+import os
 import re
 import stat
 from datetime import datetime, timedelta
@@ -210,7 +211,8 @@ def test_a_button_press_on_the_popup_records_that_days_excuse(monkeypatch):
     monkeypatch.setattr(coach.subprocess, "run", fake_run)
     event = coach.notification("idle", "drill", "Up.", "4 days since your last activity")
     assert coach.show(event, "2026-09-20") == "tired" and excuses.load() == {"2026-09-20": "tired"}
-    assert seen[0][:3] == ["notify-send", "-a", "lapbar"] and "tired=I'm tired" in seen[0] and "weather=Bad weather" in seen[0]
+    assert os.path.basename(seen[0][0]) == "notify-send" and seen[0][1:3] == ["-a", "lapbar"]
+    assert "tired=I'm tired" in seen[0] and "weather=Bad weather" in seen[0]
 
 
 def test_dismissing_the_popup_records_nothing(monkeypatch):

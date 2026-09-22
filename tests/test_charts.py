@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 
@@ -91,7 +92,7 @@ def test_the_window_process_gets_the_data_path_and_theme_and_outlives_the_comman
     monkeypatch.setattr(charts, "float_window", lambda pid, **kw: seen.update(floated=pid))
     pid = charts.open_window(tmp_path / "1.json", {"LAPBAR_FG": "#fff"})
     assert pid == 4242 and seen["floated"] == 4242
-    assert seen["cmd"][:2] == ["quickshell", "-p"] and seen["cmd"][2].endswith("charts")
+    assert os.path.basename(seen["cmd"][0]) == "quickshell" and seen["cmd"][1] == "-p" and seen["cmd"][2].endswith("charts")
     assert seen["env"]["LAPBAR_CHART_FILE"].endswith("1.json") and seen["env"]["LAPBAR_FG"] == "#fff"
     assert seen["start_new_session"] is True
 

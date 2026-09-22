@@ -12,6 +12,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from . import system
+
 CHARTS_DIR = Path(__file__).resolve().parent.parent / "charts"
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"      # holds strava/ and logo/
 WINDOW_W, WINDOW_H = 1240, 820      # preferred size, shrunk to fit small screens
@@ -21,7 +23,7 @@ WAIT_FOR_WINDOW = 6.0               # seconds to wait for the window to appear b
 
 def _hyprctl(*args: str) -> str | None:
     try:
-        done = subprocess.run(["hyprctl", *args], capture_output=True, text=True, timeout=3)
+        done = subprocess.run([system.tool("hyprctl"), *args], capture_output=True, text=True, timeout=3)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     return done.stdout if done.returncode == 0 else None
@@ -94,7 +96,7 @@ def open_window(data_path, env: dict | None = None) -> int:
         "LAPBAR_ASSETS": str(ASSETS_DIR),
     }
     proc = subprocess.Popen(
-        ["quickshell", "-p", str(CHARTS_DIR)], env=child_env, stdin=subprocess.DEVNULL,
+        [system.tool("quickshell"), "-p", str(CHARTS_DIR)], env=child_env, stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,  # outlives this command
     )
     float_window(proc.pid)
