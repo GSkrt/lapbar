@@ -165,6 +165,7 @@ FloatingWindow {
         spacing: 3
 
         Text {
+          textFormat: Text.PlainText   // the activity's own title: never read as markup
           text: win.doc ? win.doc.name : "LapBar"
           color: win.fg
           font.family: win.fontName

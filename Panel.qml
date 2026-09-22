@@ -2597,6 +2597,7 @@ Panel {
                   anchors.rightMargin: Style.space(8)
                   anchors.verticalCenter: parent.verticalCenter
                   elide: Text.ElideRight
+                  textFormat: Text.PlainText   // an activity's own title: never read as markup, like the header above
                   text: dayRow.modelData.name
                   color: root.foreground
                   font.family: root.fontFamily

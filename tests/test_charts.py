@@ -108,3 +108,12 @@ def test_the_window_is_told_where_the_logos_are_because_quickshell_only_loads_im
     assets = Path(seen["env"]["LAPBAR_ASSETS"])
     assert assets.is_absolute() and (assets / "strava" / "api_logo_pwrdBy_strava_horiz_white.svg").is_file()
     assert (assets / "logo" / "lapbar_horiz_white.svg").is_file()
+
+
+def test_the_chart_windows_title_is_never_rendered_as_markup():
+    # The header shows the activity's own title the same way Panel.qml's does; Qt's default text rendering
+    # (Text.AutoText) auto-detects and interprets anything that looks like HTML, so this must say PlainText
+    # explicitly, the same as every other place LapBar shows a Strava-echoed name.
+    shell = (Path(__file__).resolve().parent.parent / "charts" / "shell.qml").read_text()
+    header = shell[:shell.index("text: win.doc ? win.doc.name")]
+    assert "textFormat: Text.PlainText" in header[-200:]

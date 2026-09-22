@@ -163,3 +163,14 @@ def test_the_open_chart_actions_are_small_blue_rounded_buttons():
 
 def test_the_menu_is_never_wider_than_the_column_it_hangs_in():
     assert "width: Math.min(leftCol.width, root.aboutOpen" in PANEL            # the About card used to be cut off at the edge
+
+
+def test_third_party_or_echoed_names_are_never_rendered_as_markup():
+    # Every place that shows an activity's own title (self-authored, but echoed the same way a kudos name or a
+    # comment is, and in principle settable by more than just its owner) must tell Qt not to interpret it as
+    # rich text; Qt's default (Text.AutoText) auto-detects and renders anything that looks like HTML, which for a
+    # title such as "<img src='https://attacker.example/x'>" could fetch a remote image just by being displayed.
+    day_picker = PANEL[PANEL.index("id: rowName"):PANEL.index("text: dayRow.modelData.name")]
+    assert "textFormat: Text.PlainText" in day_picker
+    header = PANEL[PANEL.index("id: headerText"):PANEL.index('text: root.shown ? root.shown.name')]
+    assert "textFormat: Text.PlainText" in header
