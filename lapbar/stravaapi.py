@@ -59,7 +59,7 @@ CALLS = [
      "why": "signing in (authorization_code) and renewing the access token (refresh_token, about every 6 hours)",
      "when": "at sign-in, and when the access token has expired"},
     {"id": "oauth_authorize", "method": "BROWSER", "path": "/authorize", "base": OAUTH, "spec": False,
-     "params": ["client_id", "response_type", "redirect_uri", "approval_prompt", "scope"], "scope": "read,activity:read_all",
+     "params": ["client_id", "response_type", "redirect_uri", "approval_prompt", "scope", "state"], "scope": "read,activity:read_all",
      "why": "the page where you allow LapBar to read your activities (opened in your browser, not requested by LapBar)",
      "when": "at sign-in"},
 ]

@@ -184,10 +184,13 @@ def detail(activity: dict):
     return path
 
 
+STREAMS_MAX_BYTES = 64 * 1024 * 1024   # the one call that can legitimately be large (multi-day activities, GPS included)
+
+
 def _download(token: str, activity: dict) -> dict:
     """Ask Strava once, keep the complete answer in the raw archive, and return it ({} if there are no streams)."""
     try:
-        answer = request_json(STREAMS_URL.format(id=activity["id"]), token=token)
+        answer = request_json(STREAMS_URL.format(id=activity["id"]), token=token, max_bytes=STREAMS_MAX_BYTES)
     except HttpError as e:
         if e.status != 404:
             raise

@@ -4,8 +4,10 @@ A TokenSource hands out a valid access token. `DirectTokenSource` talks to Strav
 with the user's own client id/secret (bring-your-own-app mode). A Worker-backed
 source can be added later without touching the provider.
 """
+import hmac
 import json
 import re
+import secrets
 import time
 import urllib.parse
 import webbrowser
@@ -91,10 +93,21 @@ class AuthTimeout(RuntimeError):
     """The browser login never came back to the local callback."""
 
 
+def _new_state() -> str:
+    return secrets.token_urlsafe(24)
+
+
 def authorize(client_id: str, client_secret: str, *, open_browser: bool = True,
               timeout: float = 300, out=print) -> None:
-    """One-time browser login: catch the redirect on localhost and store the tokens."""
+    """One-time browser login: catch the redirect on localhost and store the tokens.
+
+    The callback server is on localhost, so anything on the machine (or a web page that guesses the port) can send
+    it a request while a sign-in is open. A random `state`, generated fresh for this one flow and sent with the
+    authorize request, means only a callback that came from that exact authorize page is accepted: a forged
+    callback carrying someone else's authorization code cannot be used to bind LapBar to the wrong Strava account.
+    """
     redirect_uri = f"http://localhost:{CALLBACK_PORT}/callback"
+    state = _new_state()
     result: dict = {}
 
     class Handler(BaseHTTPRequestHandler):
@@ -103,7 +116,11 @@ def authorize(client_id: str, client_secret: str, *, open_browser: bool = True,
             if parsed.path != "/callback":
                 self.send_error(404)
                 return
-            result.update({k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()})
+            params = {k: v[0] for k, v in urllib.parse.parse_qs(parsed.query).items()}
+            if not hmac.compare_digest(params.get("state", ""), state):
+                self.send_error(400, "Invalid or missing state")
+                return                      # not our flow: ignored, not stored; keep waiting for the real one
+            result.update(params)
             self.send_response(200)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
             self.end_headers()
@@ -125,6 +142,7 @@ def authorize(client_id: str, client_secret: str, *, open_browser: bool = True,
         "redirect_uri": redirect_uri,
         "approval_prompt": "force",
         "scope": f"read,{REQUIRED_SCOPE}",
+        "state": state,
     })
     if open_browser:
         out("Opening your browser. If nothing happens, open this address yourself:")

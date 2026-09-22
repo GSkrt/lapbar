@@ -96,6 +96,7 @@ def hit_callback(port, query, delay=0.3):
 def test_authorize_stores_tokens_after_the_callback(monkeypatch, keyring):
     port = free_port()
     monkeypatch.setattr(auth, "CALLBACK_PORT", port)
+    monkeypatch.setattr(auth, "_new_state", lambda: "thestate")
     said, opened = [], []
     seen = {}
 
@@ -105,22 +106,24 @@ def test_authorize_stores_tokens_after_the_callback(monkeypatch, keyring):
 
     monkeypatch.setattr(auth, "request_json", exchange)
     monkeypatch.setattr(auth.webbrowser, "open", opened.append)
-    t = hit_callback(port, "code=CODE123&scope=read,activity:read_all")
+    t = hit_callback(port, "code=CODE123&scope=read,activity:read_all&state=thestate")
     auth.authorize("12345", "sec", out=said.append)
     t.join()
     assert seen["code"] == "CODE123" and seen["client_secret"] == "sec"
     assert json.loads(keyring.items["tokens"])["refresh_token"] == "ref"
     url = opened[0]
     assert "client_id=12345" in url and f"localhost%3A{port}" in url and "activity%3Aread_all" in url
+    assert "state=thestate" in url
 
 
 def test_authorize_no_browser_prints_the_link_instead(monkeypatch, keyring):
     port = free_port()
     monkeypatch.setattr(auth, "CALLBACK_PORT", port)
+    monkeypatch.setattr(auth, "_new_state", lambda: "thestate")
     monkeypatch.setattr(auth, "request_json", lambda *a, **k: {"access_token": "a", "refresh_token": "r", "expires_at": 1})
     monkeypatch.setattr(auth.webbrowser, "open", lambda url: (_ for _ in ()).throw(AssertionError("opened a browser")))
     said = []
-    t = hit_callback(port, "code=X&scope=read,activity:read_all")
+    t = hit_callback(port, "code=X&scope=read,activity:read_all&state=thestate")
     auth.authorize("1", "s", open_browser=False, out=said.append)
     t.join()
     assert any("strava.com/oauth/authorize" in str(line) for line in said)
@@ -129,10 +132,41 @@ def test_authorize_no_browser_prints_the_link_instead(monkeypatch, keyring):
 def test_authorize_insists_on_the_activity_permission(monkeypatch, keyring):
     port = free_port()
     monkeypatch.setattr(auth, "CALLBACK_PORT", port)
+    monkeypatch.setattr(auth, "_new_state", lambda: "thestate")
     monkeypatch.setattr(auth.webbrowser, "open", lambda url: None)
-    t = hit_callback(port, "code=X&scope=read")           # user unticked the activity box
+    t = hit_callback(port, "code=X&scope=read&state=thestate")           # user unticked the activity box
     with pytest.raises(RuntimeError, match="activity:read_all"):
         auth.authorize("1", "s", out=lambda *_: None)
+    t.join()
+    assert "tokens" not in keyring.items
+
+
+# ---- the state check: a callback that is not from this exact flow is rejected, not acted on
+
+def test_a_callback_with_the_wrong_state_is_ignored_and_the_real_one_still_gets_through(monkeypatch, keyring):
+    port = free_port()
+    monkeypatch.setattr(auth, "CALLBACK_PORT", port)
+    monkeypatch.setattr(auth, "_new_state", lambda: "realstate")
+    monkeypatch.setattr(auth, "request_json", lambda *a, **k: {"access_token": "a", "refresh_token": "r", "expires_at": 1})
+    monkeypatch.setattr(auth.webbrowser, "open", lambda url: None)
+    forged = hit_callback(port, "code=FORGED&scope=read,activity:read_all&state=guessed", delay=0.1)
+    real = hit_callback(port, "code=REAL&scope=read,activity:read_all&state=realstate", delay=0.4)
+    seen = {}
+    monkeypatch.setattr(auth, "request_json", lambda url, form=None, token=None: seen.update(form) or
+                        {"access_token": "a", "refresh_token": "r", "expires_at": 1})
+    auth.authorize("1", "s", out=lambda *_: None)
+    forged.join(); real.join()
+    assert seen["code"] == "REAL"                                        # the forged one never reached the exchange
+
+
+def test_a_callback_with_no_state_at_all_times_out_rather_than_being_accepted(monkeypatch, keyring):
+    port = free_port()
+    monkeypatch.setattr(auth, "CALLBACK_PORT", port)
+    monkeypatch.setattr(auth, "_new_state", lambda: "realstate")
+    monkeypatch.setattr(auth.webbrowser, "open", lambda url: None)
+    t = hit_callback(port, "code=X&scope=read,activity:read_all")        # no state param
+    with pytest.raises(auth.AuthTimeout):
+        auth.authorize("1", "s", timeout=0.3, out=lambda *_: None)
     t.join()
     assert "tokens" not in keyring.items
 

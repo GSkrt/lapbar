@@ -126,8 +126,12 @@ class FakeResponse:
     def __init__(self, headers, body=b"[]"):
         self.headers, self._body = headers, body
 
-    def read(self, *a):
-        return self._body
+    def read(self, amt=-1):
+        if amt is None or amt < 0:
+            data, self._body = self._body, b""
+        else:
+            data, self._body = self._body[:amt], self._body[amt:]
+        return data
 
     def __enter__(self):
         return self
