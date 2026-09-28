@@ -220,3 +220,45 @@ def test_streams_own_number_cap_is_generous_but_finite_and_smaller_than_its_old_
     from lapbar import streams
     assert 0 < streams.STREAMS_MAX_NUMBERS < 50_000_000
     assert streams.STREAMS_MAX_BYTES < 512 * 1024 * 1024                        # no longer relying on bytes alone
+
+
+# ---- redirects must never carry the bearer token to a different host or downgrade to plain http:
+# urllib's own default HTTPRedirectHandler copies every header, Authorization included, onto the
+# redirected request regardless of where it points -- confirmed live against two real local HTTP servers
+# before this fix existed. install_opener() (see http.py, module level) makes plain urlopen() -- exactly
+# what these tests already monkeypatch elsewhere in this file -- use the safer handler everywhere, so no
+# existing fixture needed to change for this fix to take effect in real use.
+
+def test_cross_host_redirect_strips_the_authorization_header():
+    handler = http._SameOriginRedirectHandler()
+    req = http.urllib.request.Request("https://api.example/original")
+    req.add_header("Authorization", "Bearer secret")
+    new_req = handler.redirect_request(req, None, 302, "Found", {}, "https://evil.example/steal")
+    assert new_req is not None
+    assert new_req.get_header("Authorization") is None
+
+
+def test_https_to_http_downgrade_on_redirect_also_strips_the_header():
+    handler = http._SameOriginRedirectHandler()
+    req = http.urllib.request.Request("https://api.example/original")
+    req.add_header("Authorization", "Bearer secret")
+    new_req = handler.redirect_request(req, None, 302, "Found", {}, "http://api.example/original")
+    assert new_req is not None
+    assert new_req.get_header("Authorization") is None
+
+
+def test_same_origin_redirect_keeps_the_authorization_header():
+    handler = http._SameOriginRedirectHandler()
+    req = http.urllib.request.Request("https://api.example/first")
+    req.add_header("Authorization", "Bearer secret")
+    new_req = handler.redirect_request(req, None, 302, "Found", {}, "https://api.example/second")
+    assert new_req is not None
+    assert new_req.get_header("Authorization") == "Bearer secret"
+
+
+def test_request_json_uses_the_installed_opener_so_the_fix_is_live_for_real_calls():
+    # Confirms the module actually installed something other than urllib's own default opener, which is
+    # what makes the fix apply to every real request_json() call, not just to code that uses
+    # _SameOriginRedirectHandler directly.
+    assert isinstance(http.urllib.request._opener, http.urllib.request.OpenerDirector)
+    assert any(isinstance(h, http._SameOriginRedirectHandler) for h in http.urllib.request._opener.handlers)

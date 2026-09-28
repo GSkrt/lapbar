@@ -47,6 +47,32 @@ class TooManyValues(HttpError):
         super().__init__(0, f"response held more than {cap} numbers")
 
 
+class _SameOriginRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """`urllib`'s own default redirect handling copies every header -- including Authorization -- onto the
+    redirected request, even when the target is a different host or a downgrade from https to plain http.
+    Confirmed live: a request carrying a bearer token, redirected to a second local server on a different
+    port, delivered that exact token to it. Strava's real API has no legitimate reason to redirect a call
+    to a different host, so the fix is to strip the token whenever the scheme or host changes, rather than
+    trust every redirect target the way the stdlib does by default."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req is None:
+            return None
+        old = urllib.parse.urlsplit(req.full_url)
+        new = urllib.parse.urlsplit(newurl)
+        if (old.scheme, old.netloc) != (new.scheme, new.netloc):
+            new_req.remove_header("Authorization")
+        return new_req
+
+
+# Installed globally (not just built and used locally) so plain urllib.request.urlopen() -- the call this
+# module already makes, and the call every existing test in tests/test_http.py already monkeypatches --
+# picks up the safer redirect handling everywhere, with no change needed at the call site or in any
+# existing test's fixture.
+urllib.request.install_opener(urllib.request.build_opener(_SameOriginRedirectHandler))
+
+
 def _read_capped(fp, cap: int) -> bytes:
     """Read at most `cap + 1` bytes from `fp`: enough to know there is more than the cap, never more."""
     chunks: list[bytes] = []
