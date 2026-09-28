@@ -61,8 +61,15 @@ def show(kind: str, event: dict, timeout_ms: int = POPUP_MS) -> str | None:
 
 
 def deliver(kind: str, event: dict) -> None:
-    """Show a popup without holding anything up: a detached process shows it and opens the page on a click."""
+    """Show a popup without holding anything up: a detached process shows it and opens the page on a click.
+
+    The payload goes on the child's stdin, not as a --deliver=<JSON> argument: a command-line argument sits
+    in the process table (`ps`, /proc/<pid>/cmdline) for anyone on the machine to read for as long as the
+    process runs -- until the notification is dismissed, here -- and this payload names a real person (who
+    gave kudos or left a comment) and, for comments, their actual words, not just this app's own data."""
     launcher = Path(__file__).resolve().parent.parent / "bin" / "lapbar"
     payload = json.dumps({"kind": kind, "event": event})
-    subprocess.Popen([sys.executable, "-I", str(launcher), "alert", "--deliver", payload],
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    proc = subprocess.Popen([sys.executable, "-I", str(launcher), "alert", "--deliver"], stdin=subprocess.PIPE,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    proc.stdin.write(payload.encode())
+    proc.stdin.close()

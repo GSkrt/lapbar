@@ -1,4 +1,5 @@
 """Popups for kudos and comments: one per activity, each ending with an orange View on Strava link to its activity."""
+import io
 import json
 import os
 
@@ -63,17 +64,47 @@ def test_clicking_the_popup_opens_the_activity_and_no_click_opens_nothing(monkey
 def test_the_alert_command_shows_an_event_and_rejects_rubbish(monkeypatch, capsys):
     got = []
     monkeypatch.setattr(alerts, "show", lambda kind, event: got.append((kind, event)) or "default")
-    payload = json.dumps({"kind": "comments", "event": {**COMMENT, "comments": [{"who": "A B.", "text": "hi\x00"}]}})
-    with pytest.raises(SystemExit) as e:
-        cli.main(["alert", "--deliver", payload])
-    assert e.value.code == 0 and got[0][0] == "comments" and got[0][1]["comments"] == [{"who": "A B.", "text": "hi"}]
-    with pytest.raises(SystemExit) as e:
-        cli.main(["alert", "--deliver", json.dumps({"kind": "kudos", "event": KUDOS})])
-    assert e.value.code == 0 and got[1][0] == "kudos"
-    for bad in ("not json", json.dumps({"kind": "nope", "event": {}}), json.dumps({"kind": "kudos", "event": {"name": "x"}})):
+
+    def deliver(payload):
+        # The payload comes in on stdin now, not as a --deliver=<JSON> argument: a command-line argument
+        # sits in the process table (`ps`, /proc/<pid>/cmdline) for anyone on the machine to read, and this
+        # payload can carry another person's name and the text of their comment.
+        monkeypatch.setattr(cli.sys, "stdin", io.StringIO(payload))
         with pytest.raises(SystemExit) as e:
-            cli.main(["alert", "--deliver", bad])
-        assert e.value.code == 1 and "bad_event" in capsys.readouterr().out
+            cli.main(["alert", "--deliver"])
+        return e.value.code
+
+    payload = json.dumps({"kind": "comments", "event": {**COMMENT, "comments": [{"who": "A B.", "text": "hi\x00"}]}})
+    assert deliver(payload) == 0 and got[0][0] == "comments" and got[0][1]["comments"] == [{"who": "A B.", "text": "hi"}]
+    assert deliver(json.dumps({"kind": "kudos", "event": KUDOS})) == 0 and got[1][0] == "kudos"
+    for bad in ("not json", json.dumps({"kind": "nope", "event": {}}), json.dumps({"kind": "kudos", "event": {"name": "x"}})):
+        assert deliver(bad) == 1 and "bad_event" in capsys.readouterr().out
+
+
+def test_delivering_a_popup_puts_the_payload_on_stdin_not_argv(monkeypatch):
+    class FakeStdin:
+        def __init__(self):
+            self.data = b""
+
+        def write(self, chunk):
+            self.data += chunk
+
+        def close(self):
+            pass
+
+    started = []
+
+    def fake_popen(cmd, **kw):
+        proc = type("Proc", (), {"stdin": FakeStdin()})()
+        started.append((cmd, kw, proc))
+        return proc
+
+    monkeypatch.setattr(alerts.subprocess, "Popen", fake_popen)
+    alerts.deliver("kudos", KUDOS)
+    cmd, kw, proc = started[0]
+    assert cmd[-1] == "--deliver" and "--deliver" not in cmd[:-1]
+    payload = json.loads(proc.stdin.data)
+    assert payload["kind"] == "kudos" and payload["event"] == KUDOS and kw["start_new_session"] is True
 
 
 def fetch_with(monkeypatch, kudos_events, comment_events):

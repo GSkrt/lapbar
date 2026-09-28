@@ -222,19 +222,44 @@ def test_dismissing_the_popup_records_nothing(monkeypatch):
     assert coach.show(coach.notification("idle", "drill", "Up."), "2026-09-20") is None and excuses.load() == {}
 
 
+class _FakeStdin:
+    """Stands in for a Popen child's writable stdin pipe."""
+
+    def __init__(self):
+        self.data = b""
+
+    def write(self, chunk):
+        self.data += chunk
+
+    def close(self):
+        pass
+
+
 def test_delivering_a_popup_starts_a_detached_process_and_a_refresh_does_it_for_each_nudge(monkeypatch, capsys):
     started = []
-    monkeypatch.setattr(coach.subprocess, "Popen", lambda cmd, **kw: started.append((cmd, kw)))
+
+    def fake_popen(cmd, **kw):
+        proc = type("Proc", (), {"stdin": _FakeStdin()})()
+        started.append((cmd, kw, proc))
+        return proc
+
+    monkeypatch.setattr(coach.subprocess, "Popen", fake_popen)
     coach.deliver(coach.notification("idle", "drill", "Up."), "2026-09-20")
-    cmd, kw = started[0]
-    assert cmd[-2] == "--deliver" and json.loads(cmd[-1])["day"] == "2026-09-20" and kw["start_new_session"] is True
+    cmd, kw, proc = started[0]
+    # The payload is on the child's stdin now, not a command-line argument: `ps`/`/proc/<pid>/cmdline`
+    # would otherwise show it to anyone on the machine for as long as the process runs.
+    assert cmd[-1] == "--deliver" and "--deliver" not in cmd[:-1]
+    assert json.loads(proc.stdin.data)["day"] == "2026-09-20" and kw["start_new_session"] is True
 
 
 def test_the_deliver_command_shows_the_popup_it_is_given(monkeypatch, capsys):
+    import io
+
     shown = []
     monkeypatch.setattr(coach, "show", lambda event, day, timeout_ms=0: shown.append((event["title"], day)))
     payload = json.dumps({"event": coach.notification("idle", "drill", "Up."), "day": "2026-09-20"})
-    assert run("coach", "--deliver", payload, capsys=capsys)[0] == 0 and shown == [("ATTENTION", "2026-09-20")]
+    monkeypatch.setattr(cli.sys, "stdin", io.StringIO(payload))
+    assert run("coach", "--deliver", capsys=capsys)[0] == 0 and shown == [("ATTENTION", "2026-09-20")]
 
 
 # ---- the words

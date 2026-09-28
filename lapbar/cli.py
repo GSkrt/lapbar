@@ -177,9 +177,14 @@ def cmd_details(args) -> int:
 
 
 def cmd_alert(args) -> int:
-    """Show one popup for an event (used by a refresh, in a process of its own so it can wait for a click)."""
+    """Show one popup for an event (used by a refresh, in a process of its own so it can wait for a click).
+
+    The payload comes in on stdin, not as a --deliver=<JSON> argument: a command-line argument is world-
+    readable in the process table (`ps`, /proc/<pid>/cmdline) for as long as this process runs, which is
+    until the notification is dismissed -- and the payload here can carry another person's name and the
+    text of their comment, not just this app's own data."""
     try:
-        payload = json.loads(args.deliver)
+        payload = json.loads(sys.stdin.read())
         kind, event = payload["kind"], payload["event"]
         if kind not in alerts.KINDS or not isinstance(event, dict):
             raise ValueError("unknown alert")
@@ -265,7 +270,7 @@ def cmd_manage(args) -> int:
 def cmd_coach(args) -> int:
     """The coach: what the popup shows (JSON), `--test` to see and send a sample of a tone."""
     if args.deliver:                                       # started by coach.deliver(): show one popup and record a button press
-        payload = json.loads(args.deliver)
+        payload = json.loads(sys.stdin.read())               # on stdin, not argv -- see cmd_alert's docstring
         coach.show(payload["event"], payload["day"])
         return 0
     settings = prefs.load()
@@ -476,7 +481,7 @@ def main(argv: list[str] | None = None) -> None:
     coach_p.add_argument("--test", action="store_true", help="send a sample notification now")
     coach_p.add_argument("--tone", choices=("motivational", "drill"), help="with --test: which tone (default: yours)")
     coach_p.add_argument("--kind", default="random", choices=("random", "idle", "comeback", "rest", "fresh", "praise"))
-    coach_p.add_argument("--deliver", metavar="JSON", help=argparse.SUPPRESS)
+    coach_p.add_argument("--deliver", action="store_true", help=argparse.SUPPRESS)  # payload on stdin, not argv
     coach_p.set_defaults(func=cmd_coach)
     excuse_p = sub.add_parser("excuse", help="mark a day you skip, with the reason (tired, weather, time, unwell, rest), or clear it")
     excuse_p.add_argument("key", choices=(*("tired", "weather", "time", "unwell", "rest"), "clear"))
@@ -488,7 +493,8 @@ def main(argv: list[str] | None = None) -> None:
         activity_p.add_argument(flag, default=None)
     activity_p.set_defaults(func=cmd_activity)
     alert_p = sub.add_parser("alert", help="show a kudos or comment popup (used by a refresh)")
-    alert_p.add_argument("--deliver", metavar="JSON", required=True, help='{"kind": "kudos"|"comments", "event": {...}}')
+    alert_p.add_argument("--deliver", action="store_true", required=True,
+                         help='read {"kind": "kudos"|"comments", "event": {...}} JSON from stdin')
     alert_p.set_defaults(func=cmd_alert)
     howto_p = sub.add_parser("howto", help="open the how-to window: the guide, inside the app")
     for flag in ("--fg", "--bg", "--accent", "--font"):
