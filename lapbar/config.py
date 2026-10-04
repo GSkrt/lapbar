@@ -72,6 +72,16 @@ def private_dir(path: Path) -> Path:
     return path
 
 
+def write_private(path: Path, text: str) -> None:
+    """Write `text` so the file is owner-only from its first byte (never world-readable, even briefly)."""
+    private_dir(path.parent)
+    tmp = path.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(text)
+    tmp.replace(path)
+
+
 def read_env_file(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not path.is_file():

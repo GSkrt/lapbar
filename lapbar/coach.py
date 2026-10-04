@@ -66,8 +66,7 @@ def _load_state() -> dict:
 
 
 def _save_state(state: dict) -> None:
-    config.private_dir(_state_path().parent)
-    _state_path().write_text(json.dumps(state))
+    config.write_private(_state_path(), json.dumps(state))
 
 
 def facts(summary: dict, now: datetime, marked: dict | None = None) -> dict:

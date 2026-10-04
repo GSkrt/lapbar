@@ -78,3 +78,35 @@ def test_already_correct_permissions_are_left_alone_without_erroring(tmp_path, m
     config.private_dir(target)
     config.private_dir(target)                                            # idempotent: called again, no crash
     assert oct(os.stat(target).st_mode & 0o777) == "0o700"
+
+
+# ---- small state files written from the first byte as owner-only, even under a permissive umask
+
+def test_write_private_creates_owner_only_files_even_with_a_permissive_umask(tmp_path, monkeypatch):
+    import stat
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    old = os.umask(0o022)
+    try:
+        target = config.state_dir() / "thing.json"
+        config.write_private(target, "{}")
+        assert stat.S_IMODE(target.stat().st_mode) == 0o600
+        assert stat.S_IMODE(target.parent.stat().st_mode) == 0o700
+    finally:
+        os.umask(old)
+
+
+def test_the_mute_flag_and_coach_and_athlete_state_are_private(tmp_path, monkeypatch):
+    import stat
+    from lapbar import coach, comments, mute
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    old = os.umask(0o022)
+    try:
+        mute.set_muted(True)
+        assert stat.S_IMODE(mute._flag().stat().st_mode) == 0o600
+        coach._save_state({"date": "2026-10-04"})
+        assert stat.S_IMODE(coach._state_path().stat().st_mode) == 0o600
+        monkeypatch.setattr(comments, "request_json", lambda *a, **k: {"id": 42})
+        assert comments.own_id("token") == 42
+        assert stat.S_IMODE(comments._athlete_file().stat().st_mode) == 0o600
+    finally:
+        os.umask(old)

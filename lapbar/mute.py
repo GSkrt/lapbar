@@ -1,4 +1,6 @@
 """Persistent mute switch for kudos and comment alerts (a flag file, so it survives shell restarts)."""
+import os
+
 from . import config
 
 
@@ -13,8 +15,8 @@ def is_muted() -> bool:
 def set_muted(muted: bool) -> bool:
     flag = _flag()
     if muted:
-        flag.parent.mkdir(parents=True, exist_ok=True)
-        flag.touch()
+        config.private_dir(flag.parent)
+        os.close(os.open(flag, os.O_WRONLY | os.O_CREAT, 0o600))
     else:
         flag.unlink(missing_ok=True)
     return muted

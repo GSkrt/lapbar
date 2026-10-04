@@ -52,8 +52,7 @@ def own_id(token: str) -> int | None:
     me = request_json(ATHLETE_URL, token=token)
     athlete_id = me.get("id") if isinstance(me, dict) else None
     if athlete_id:
-        _athlete_file().parent.mkdir(parents=True, exist_ok=True)
-        _athlete_file().write_text(json.dumps({"id": athlete_id}))
+        config.write_private(_athlete_file(), json.dumps({"id": athlete_id}))
     return athlete_id
 
 
