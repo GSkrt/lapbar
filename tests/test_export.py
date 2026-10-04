@@ -568,3 +568,87 @@ def test_a_failure_partway_through_leaves_a_private_file_too(data, tmp_path, mon
         assert os.umask(0o022) == 0o022
     finally:
         os.umask(old)
+
+
+# ---- files left readable by an older version or an older failed export are repaired before they are opened
+
+def _leave_readable(path):
+    """What an export from before the umask fix left behind: a 0644 database and a 0644 .wal beside it."""
+    os.chmod(path, 0o644)
+    wal = path.with_name(path.name + ".wal")
+    wal.write_bytes(b"")
+    os.chmod(wal, 0o644)
+    return wal
+
+
+@needs_duckdb
+def test_an_existing_readable_database_and_wal_are_private_before_duckdb_opens_them(data, tmp_path, monkeypatch):
+    old = os.umask(0o022)
+    try:
+        path = tmp_path / "old.duckdb"
+        export.sync(path)
+        wal = _leave_readable(path)
+        modes_at_open = []
+        real_connect = export._import().connect
+
+        class Spy:
+            @staticmethod
+            def connect(target, *a, **k):
+                modes_at_open.append((stat.S_IMODE(path.stat().st_mode), stat.S_IMODE(wal.stat().st_mode)))
+                wal.unlink()                          # an empty .wal is not a valid one; it was only there for its mode
+                return real_connect(target, *a, **k)
+            IOException = export._import().IOException
+        monkeypatch.setattr(export, "_import", lambda: Spy)
+        export.sync(path)
+        assert modes_at_open == [(0o600, 0o600)]
+    finally:
+        os.umask(old)
+
+
+@needs_duckdb
+def test_a_failing_export_still_leaves_an_existing_readable_database_private(data, tmp_path, monkeypatch):
+    old = os.umask(0o022)
+    try:
+        path = tmp_path / "old.duckdb"
+        export.sync(path)
+        wal = _leave_readable(path)
+        monkeypatch.setattr(export._import(), "connect", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("interrupted")))
+        with pytest.raises(RuntimeError):
+            export.sync(path)
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600 and stat.S_IMODE(wal.stat().st_mode) == 0o600
+    finally:
+        os.umask(old)
+
+
+@needs_duckdb
+def test_a_rebuild_also_repairs_the_file_it_is_about_to_replace(data, tmp_path, monkeypatch):
+    old = os.umask(0o022)
+    try:
+        path = tmp_path / "old.duckdb"
+        export.sync(path)
+        os.chmod(path, 0o644)
+        monkeypatch.setattr(export._import(), "connect", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("interrupted")))
+        with pytest.raises(RuntimeError):
+            export.sync(path, rebuild=True)
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    finally:
+        os.umask(old)
+
+
+def test_a_symlink_in_place_of_the_database_is_refused_and_its_target_left_alone(tmp_path):
+    target = tmp_path / "someone-elses-file"
+    target.write_text("x")
+    os.chmod(target, 0o644)
+    link = tmp_path / "planted.duckdb"
+    link.symlink_to(target)
+    with pytest.raises(ValueError, match="symbolic link"):
+        export._make_private(link)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
+    export._make_private(tmp_path / "does-not-exist")         # nothing there yet: nothing to do
+
+
+def test_something_other_than_a_file_in_place_of_the_database_is_refused(tmp_path):
+    fifo = tmp_path / "pipe.duckdb"
+    os.mkfifo(fifo)
+    with pytest.raises(ValueError, match="not a regular file"):
+        export._make_private(fifo)                             # and it does not hang waiting for a writer

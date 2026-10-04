@@ -11,9 +11,11 @@ DuckDB is optional and is not installed with LapBar. `import duckdb` is done onl
 the error says what to install (see INSTALL_COMMANDS). `SCHEMA` below is the single description of the tables:
 it creates them and it is what the data window shows next to the export settings.
 """
+import errno
 import json
 import math
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -441,6 +443,30 @@ def sync(path=None, rebuild: bool = False, progress=None, spatial: bool | None =
         os.umask(previous_umask)
 
 
+def _make_private(file: Path) -> None:
+    """Lock an existing file to owner-only before anything opens it.
+
+    The umask in sync() only covers files created now. A database or .wal left at 0644 by an older version,
+    or by a failed export from before that fix, would otherwise stay readable by other local accounts for the
+    whole export, and for good if this one fails too. The file is opened without following a symlink and
+    changed through that descriptor, so a link planted in a shared folder cannot redirect the chmod, and only
+    a regular file is accepted."""
+    try:
+        fd = os.open(file, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except FileNotFoundError:
+        return
+    except OSError as e:
+        if e.errno == errno.ELOOP:
+            raise ValueError(f"{file} is a symbolic link: give the real file's path instead") from e
+        raise
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError(f"{file} is not a regular file")
+        os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
+
+
 def _sync_private(path, rebuild: bool, progress, spatial: bool | None) -> dict:
     duckdb = _import()
     path = Path(os.path.expanduser(str(path))) if path else prefs.export_path()
@@ -455,6 +481,10 @@ def _sync_private(path, rebuild: bool, progress, spatial: bool | None) -> dict:
     started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     _write_state(running=True, pid=os.getpid(), started=started, done=0, total=0, path=str(path))
     try:
+        # Existing files first: the database and its .wal (and, for a rebuild, the file the new one replaces) are
+        # made private before DuckDB opens or reads them, so no failure from here on can leave them readable.
+        for existing in (path, Path(str(path) + ".wal")):
+            _make_private(existing)
         try:
             con = duckdb.connect(str(target))
         except duckdb.IOException as e:
