@@ -8,7 +8,7 @@ still resolved by searching $PATH at exec time, the same way a shell would (Pyth
 instead, silently: a stray writable directory ahead of `/usr/bin` in $PATH, or a same-named file dropped into
 `~/.local/bin`, are both real (if not universal) Linux misconfigurations, not exotic ones. `secret-tool` is
 trusted with the Strava client secret and the sign-in tokens, so a malicious one earlier in $PATH could read and
-rewrite both; `notify-send` and `xdg-open` decide what a popup says and what a click opens.
+rewrite both; `xdg-open` decides what a click on a popup opens.
 
 Every one of these tools is a normal part of the base Omarchy install, installed and verified by pacman like
 everything else under /usr/bin (Arch is usr-merged, so /usr/bin is the one real location). `tool()` checks that

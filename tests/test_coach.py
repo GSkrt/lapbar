@@ -203,22 +203,24 @@ def test_the_excuse_command_marks_and_clears_days(capsys):
 
 def test_a_button_press_on_the_popup_records_that_days_excuse(monkeypatch):
     seen = []
-    def fake_run(cmd, **kw):
-        seen.append(cmd)
-        class Done:
-            stdout = "tired\n"
-        return Done()
-    monkeypatch.setattr(coach.subprocess, "run", fake_run)
+    monkeypatch.setattr(coach.notify, "show", lambda title, body, actions, timeout: seen.append((body, actions)) or "tired")
+    monkeypatch.setattr(coach.subprocess, "run", lambda *a, **k: pytest.fail("the popup must not start a process"))
     event = coach.notification("idle", "drill", "Up.", "4 days since your last activity")
     assert coach.show(event, "2026-09-20") == "tired" and excuses.load() == {"2026-09-20": "tired"}
-    assert os.path.basename(seen[0][0]) == "notify-send" and seen[0][1:3] == ["-a", "lapbar"]
-    assert "tired=I'm tired" in seen[0] and "weather=Bad weather" in seen[0]
+    body, actions = seen[0]
+    assert "4 days since your last activity" in body                     # the reason travels over D-Bus, not argv
+    assert ("tired", "I'm tired") in actions and ("weather", "Bad weather") in actions
 
 
 def test_dismissing_the_popup_records_nothing(monkeypatch):
-    class Done:
-        stdout = ""
-    monkeypatch.setattr(coach.subprocess, "run", lambda cmd, **kw: Done())
+    monkeypatch.setattr(coach.notify, "show", lambda *a, **k: None)
+    assert coach.show(coach.notification("idle", "drill", "Up."), "2026-09-20") is None and excuses.load() == {}
+
+
+def test_no_notification_service_records_nothing_and_does_not_crash(monkeypatch):
+    def unavailable(*a, **k):
+        raise coach.notify.DBusError("no reachable session bus")
+    monkeypatch.setattr(coach.notify, "show", unavailable)
     assert coach.show(coach.notification("idle", "drill", "Up."), "2026-09-20") is None and excuses.load() == {}
 
 

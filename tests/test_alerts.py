@@ -48,17 +48,33 @@ def test_text_from_other_people_cannot_add_markup_or_links():
 
 def test_clicking_the_popup_opens_the_activity_and_no_click_opens_nothing(monkeypatch):
     opened, shown = [], []
-
-    class Done:
-        stdout = "default\n"
-    monkeypatch.setattr(alerts.subprocess, "run", lambda cmd, **kw: shown.append(cmd) or Done())
+    answer = ["default"]
+    monkeypatch.setattr(alerts.notify, "show", lambda title, body, actions, timeout: shown.append(actions) or answer[0])
     monkeypatch.setattr(alerts.subprocess, "Popen", lambda cmd, **kw: opened.append(cmd))
     assert alerts.show("comments", COMMENT) == "default"
     assert len(opened) == 1 and os.path.basename(opened[0][0]) == "xdg-open" and opened[0][1] == URL
-    assert "default=View on Strava" in shown[0] and "-A" in shown[0]
-    Done.stdout = "\n"
+    assert shown[0] == [("default", "View on Strava")]
+    answer[0] = None
     opened.clear()
     assert alerts.show("kudos", KUDOS) is None and opened == []
+
+
+def test_the_popup_text_never_reaches_a_command_line(monkeypatch):
+    """Comment text and names go over the session bus, not as arguments to a process everyone can list."""
+    started, sent = [], []
+    monkeypatch.setattr(alerts.subprocess, "run", lambda cmd, **kw: started.append(cmd))
+    monkeypatch.setattr(alerts.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
+    monkeypatch.setattr(alerts.notify, "show", lambda title, body, actions, timeout: sent.append((title, body)))
+    event = {**COMMENT, "comments": [{"who": "Private Person", "text": "a private remark"}]}
+    alerts.show("comments", event)
+    assert started == [] and "a private remark" in sent[0][1]
+
+
+def test_no_notification_service_means_no_popup_not_a_crash(monkeypatch):
+    def unavailable(*a, **k):
+        raise alerts.notify.DBusError("no reachable session bus")
+    monkeypatch.setattr(alerts.notify, "show", unavailable)
+    assert alerts.show("kudos", KUDOS) is None
 
 
 def test_the_alert_command_shows_an_event_and_rejects_rubbish(monkeypatch, capsys):

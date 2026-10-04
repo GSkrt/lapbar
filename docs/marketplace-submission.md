@@ -55,8 +55,9 @@ LapBar shows your own Strava activity in the bar: the latest activity, kudos and
 charts and fitness/fatigue/form. It is a bar widget (`Panel.qml`) plus a Python command-line tool (`bin/lapbar`).
 
 **Dependencies:** none to install. Python 3.11+ standard library only (no pip, no virtualenv), plus programs Omarchy
-already has: `quickshell`, `notify-send`, `hyprctl` and `secret-tool` (for the keyring; a private 0600 file is the
-fallback). There is no install script, no build step and no compiled or bundled binary. It needs no root rights, adds
+already has: `quickshell`, `hyprctl` and `secret-tool` (for the keyring; a private 0600 file is the
+fallback). Notifications go straight to the desktop's notification service over the session D-Bus socket
+(`lapbar/notify.py`, standard library only), so their text is never a command-line argument. There is no install script, no build step and no compiled or bundled binary. It needs no root rights, adds
 no sudoers rule and no systemd unit, and the README does not ask for any.
 
 **Network:** only https://www.strava.com (the API and OAuth). Every call is read-only and is listed in the README
@@ -74,7 +75,7 @@ asking. `lapbar reset` (and `--all`) and `omarchy plugin remove io.github.gskrt.
 "Removing LapBar" in the README).
 
 **Processes it starts:** `quickshell -p <folder inside the plugin>` for its own chart, data, details and help
-windows, `notify-send` for notifications, `xdg-open` to open an activity's page on Strava in your browser, and the
+windows, `xdg-open` to open an activity's page on Strava in your browser, and the
 plugin's own `bin/lapbar` in the background. It starts nothing else.
 
 **Not affiliated with Strava.** Strava's "Powered by Strava" logo is used unmodified, as their brand guidelines ask.

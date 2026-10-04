@@ -40,7 +40,7 @@ About five minutes, most of it creating your Strava app.
 Omarchy, and Python 3.11+ (already on Omarchy).
 
 **Dependencies:** none to install. LapBar uses only Python's standard library and programs Omarchy already has
-(`quickshell`, `notify-send`, `hyprctl`, and `secret-tool` for the keyring). No root rights are needed, nothing
+(`quickshell`, `hyprctl`, `secret-tool` for the keyring, and the desktop's notification service over D-Bus). No root rights are needed, nothing
 is added to the system, and no other package is downloaded. It contacts only Strava.
 
 ### 1. Install the plugin

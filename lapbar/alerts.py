@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import comments, kudos, system
+from . import comments, kudos, notify, system
 
 ORANGE = "#FC5200"                       # Strava's colour, as its brand guidelines ask for links
 LINK_TEXT = "View on Strava"
@@ -41,16 +41,15 @@ def compose(kind: str, event: dict) -> dict:
 
 
 def show(kind: str, event: dict, timeout_ms: int = POPUP_MS) -> str | None:
-    """Show the popup through the desktop's notification service and wait for it. Returns the action chosen, or None."""
+    """Show the popup through the desktop's notification service and wait for it. Returns the action chosen, or None.
+
+    Sent over the session bus (notify.py), never as `notify-send` arguments: the title and body name other people
+    and quote their comments, and a command line is readable by every account on the machine."""
     n = compose(kind, event)
-    command = [system.tool("notify-send"), "-a", "lapbar", "-u", "normal", "-t", str(timeout_ms), n["title"], n["body"]]
-    for action in n["actions"]:
-        command += ["-A", f"{action['key']}={action['label']}"]
     try:
-        done = subprocess.run(command, capture_output=True, text=True, timeout=timeout_ms / 1000 + 30)
-    except (OSError, subprocess.SubprocessError):
+        chosen = notify.show(n["title"], n["body"], [(a["key"], a["label"]) for a in n["actions"]], timeout_ms)
+    except (OSError, notify.DBusError):
         return None
-    chosen = done.stdout.strip()
     if chosen == "default" and n["url"]:
         try:
             subprocess.Popen([system.tool("xdg-open"), n["url"]], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
