@@ -520,3 +520,51 @@ def test_the_status_gives_the_picker_its_range_and_the_export_its_folder_and_fil
     status = manage.status()
     assert status["history"]["first_day"] == "2025-05-01"                 # the earliest day Strava has, whatever the limit
     assert status["export"]["filename"] == "mine.duckdb" and status["export"]["dir"].endswith("/elsewhere")
+
+
+# ---- the database is private from its first byte, not only once the export has finished
+
+@needs_duckdb
+def test_a_new_database_is_never_readable_by_others_even_with_a_permissive_umask(data, tmp_path):
+    import stat
+    old = os.umask(0o022)                       # a normal desktop umask: world-readable unless we intervene
+    try:
+        path = tmp_path / "new.duckdb"
+        modes_during_export = []
+        export.sync(path, progress=lambda done, total: modes_during_export.append(stat.S_IMODE(path.stat().st_mode)))
+        assert modes_during_export and set(modes_during_export) == {0o600}   # private while it is being written
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert os.umask(0o022) == 0o022         # and the process umask is restored afterwards
+    finally:
+        os.umask(old)
+
+
+@needs_duckdb
+def test_a_rebuild_is_private_too_and_leaves_no_temporary_file_behind(data, tmp_path):
+    import stat
+    old = os.umask(0o022)
+    try:
+        path = tmp_path / "rebuilt.duckdb"
+        export.sync(path)
+        export.sync(path, rebuild=True)
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert not (tmp_path / "rebuilt.duckdb.building").exists()
+    finally:
+        os.umask(old)
+
+
+@needs_duckdb
+def test_a_failure_partway_through_leaves_a_private_file_too(data, tmp_path, monkeypatch):
+    import stat
+    old = os.umask(0o022)
+    try:
+        def boom(*a, **k):
+            raise RuntimeError("interrupted")
+        monkeypatch.setattr(export, "_sync", boom)
+        path = tmp_path / "broken.duckdb"
+        with pytest.raises(RuntimeError):
+            export.sync(path)
+        assert path.exists() and stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert os.umask(0o022) == 0o022
+    finally:
+        os.umask(old)

@@ -428,7 +428,20 @@ def _add_geometry(con, install: bool = False) -> tuple[bool, str | None]:
 
 
 def sync(path=None, rebuild: bool = False, progress=None, spatial: bool | None = None) -> dict:
-    """Create or update the database. Returns {"path", "activities", "new_samples_for", "sample_rows", "bytes"}."""
+    """Create or update the database. Returns {"path", "activities", "new_samples_for", "sample_rows", "bytes"}.
+
+    The umask is tightened for the whole call, not just at the end: DuckDB creates the file (and its .wal
+    and .building files) with the process's normal umask, which is usually world-readable, and the file holds
+    GPS routes and health data. Creating it private from the first byte means nothing is ever readable by
+    other local users, including during the export and on a failure partway through."""
+    previous_umask = os.umask(0o077)
+    try:
+        return _sync_private(path, rebuild, progress, spatial)
+    finally:
+        os.umask(previous_umask)
+
+
+def _sync_private(path, rebuild: bool, progress, spatial: bool | None) -> dict:
     duckdb = _import()
     path = Path(os.path.expanduser(str(path))) if path else prefs.export_path()
     if path.is_dir():
